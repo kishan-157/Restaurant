@@ -1,0 +1,8 @@
+{
+  "name": "Saffron & Spice - Master Restaurant Website & Admin Template",
+  "description": "Production-grade, reusable restaurant website template with digital menu, WhatsApp ordering, customizable branding, stock controls, and optional Supabase database connectivity.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
