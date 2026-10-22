@@ -1,230 +1,528 @@
 import React from 'react';
 import {
-  Store,
-  FolderTree,
-  Utensils,
-  AlertTriangle,
-  CheckCircle2,
+  ShoppingBag,
+  UtensilsCrossed,
+  CalendarCheck,
+  TrendingUp,
+  Clock,
+  ArrowUpRight,
+  Flame,
+  FileEdit,
   Database,
-  Truck,
-  ArrowRight,
-  ShieldAlert,
+  Phone,
+  Users,
+  Sparkles,
+  Palette,
 } from 'lucide-react';
 import { useRestaurant } from '../../../context/RestaurantContext';
-import { AdminTab } from '../AdminSidebar';
+import { AdminTabId } from '../AdminSidebar';
+import { OrderStatus } from '../../../types';
 
 interface AdminDashboardProps {
-  onNavigate: (tab: AdminTab) => void;
+  onNavigateTab: (tab: AdminTabId) => void;
 }
 
-export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
-  const { data, isConnected, supabaseConfig } = useRestaurant();
-  const { profile, categories, items, orderSettings } = data;
+export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateTab }) => {
+  const {
+    data,
+    orders,
+    reservations,
+    contactMessages,
+    updateOrderStatus,
+    updateReservationStatus,
+    isConnected,
+  } = useRestaurant();
 
-  // Real Metrics
-  const totalCategories = categories.length;
-  const activeCategories = categories.filter((c) => c.isActive).length;
-  const totalItems = items.length;
-  const unavailableItems = items.filter((i) => i.stockStatus !== 'available').length;
-  const bestsellersCount = items.filter((i) => i.isBestseller).length;
+  const currency = data.profile.currencySymbol || '$';
 
-  // Incomplete Setup Warnings
-  const warnings: { text: string; tab: AdminTab; action: string }[] = [];
+  // 100% Real-Time Metrics from Live State (Zero Fake Data)
+  const validOrders = orders.filter(o => o.status !== 'cancelled');
+  const totalRevenue = validOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+  const deliveredOrders = orders.filter(o => o.status === 'delivered').length;
+  const activeKitchenOrders = orders.filter(
+    o => o.status === 'pending' || o.status === 'preparing' || o.status === 'ready'
+  );
+  const whatsappOrdersCount = orders.filter(o => o.channel === 'whatsapp').length;
+  const directOrdersCount = orders.filter(o => o.channel === 'admin').length;
 
-  if (!profile.whatsappNumber || profile.whatsappNumber === '919820012345') {
-    warnings.push({
-      text: 'Default sample WhatsApp number is still active. Update to your client\'s real business phone.',
-      tab: 'restaurant-info',
-      action: 'Change Phone',
-    });
-  }
+  const pendingReservations = reservations.filter(r => r.status === 'pending');
+  const unreadMessages = contactMessages.filter(m => !m.isRead);
 
-  if (!isConnected) {
-    warnings.push({
-      text: 'Running in Local Demo Mode. Multi-device persistence requires connecting a Supabase project.',
-      tab: 'database-setup',
-      action: 'Setup Database',
-    });
-  }
+  const availableItemsCount = data.items.filter(i => i.stockStatus === 'available').length;
+  const totalItemsCount = data.items.length;
+  const activeCategoriesCount = data.categories.filter(c => c.isActive).length;
 
-  if (unavailableItems > 0) {
-    warnings.push({
-      text: `${unavailableItems} menu ${unavailableItems === 1 ? 'item is' : 'items are'} currently marked Sold Out or Unavailable.`,
-      tab: 'stock',
-      action: 'Check Stock',
-    });
-  }
+  // Category dish distribution (computed from real menu categories and items)
+  const categoryStats = data.categories.map(cat => {
+    const itemsInCat = data.items.filter(i => i.categoryId === cat.id);
+    const availableInCat = itemsInCat.filter(i => i.stockStatus === 'available').length;
+    return {
+      id: cat.id,
+      name: cat.name,
+      icon: cat.iconName || '🍽️',
+      count: itemsInCat.length,
+      available: availableInCat,
+      percentage: totalItemsCount > 0 ? Math.round((itemsInCat.length / totalItemsCount) * 100) : 0,
+    };
+  });
 
-  if (orderSettings.temporarilyPauseOrders) {
-    warnings.push({
-      text: 'Online ordering is currently PAUSED for diners.',
-      tab: 'order-settings',
-      action: 'Resume Orders',
-    });
-  }
+  const statusBadgeStyle = (status: OrderStatus) => {
+    switch (status) {
+      case 'pending':
+        return 'bg-[#f6a623]/20 text-[#9a6200] border-[#f6a623]/40';
+      case 'preparing':
+        return 'bg-[#e8281a]/10 text-[#e8281a] border-[#e8281a]/30';
+      case 'ready':
+      case 'delivered':
+        return 'bg-[#2d6a4f]/15 text-[#2d6a4f] border-[#2d6a4f]/30';
+      case 'cancelled':
+        return 'bg-neutral-200 text-neutral-600 border-neutral-300';
+    }
+  };
 
   return (
     <div className="space-y-6">
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-200">
-        <div>
-          <h1 className="text-2xl font-bold font-heading text-neutral-900">Restaurant Dashboard</h1>
-          <p className="text-xs text-neutral-500 mt-0.5">
-            Real configuration status and inventory metrics for {profile.name}.
+      {/* Top Welcome & Real-Time Status Banner */}
+      <div className="bg-[#1a1a1a] text-white rounded-3xl p-6 sm:p-8 flex flex-col lg:flex-row lg:items-center justify-between gap-6 shadow-xl relative overflow-hidden">
+        <div className="relative z-10 max-w-2xl">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-[#f6a623] text-[11px] font-bold uppercase tracking-widest mb-3">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>100% Real-Time Restaurant Control Center</span>
+          </div>
+          <h2
+            className="text-2xl sm:text-3xl font-black text-white leading-tight"
+            style={{ fontFamily: "'Playfair Display', serif" }}
+          >
+            Welcome to {data.profile.name} Admin Studio
+          </h2>
+          <p className="text-xs sm:text-sm text-white/70 mt-2 leading-relaxed">
+            Every metric below reflects your live store activity. Customize any section of the website, update dish prices, or manage incoming orders and table reservations in real time.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="relative z-10 flex flex-wrap items-center gap-3">
           <button
-            onClick={() => onNavigate('preview')}
-            className="px-3.5 py-2 text-xs font-semibold text-neutral-800 bg-white border border-neutral-300 rounded-xl hover:bg-neutral-50 transition-colors shadow-xs"
+            onClick={() => onNavigateTab('content')}
+            className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-[#e8281a] hover:bg-[#c01f12] text-white text-xs font-semibold transition-all shadow-lg shadow-[#e8281a]/30 cursor-pointer"
           >
-            Live Website Preview
+            <FileEdit className="w-4 h-4" />
+            <span>Customize Website Content</span>
+          </button>
+          <button
+            onClick={() => onNavigateTab('items')}
+            className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-semibold transition-all border border-white/10 cursor-pointer"
+          >
+            <UtensilsCrossed className="w-4 h-4 text-[#f6a623]" />
+            <span>Manage Menu ({totalItemsCount})</span>
           </button>
         </div>
       </div>
 
-      {/* Setup Warnings Banner if any */}
-      {warnings.length > 0 && (
-        <div className="space-y-2">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
-            <AlertTriangle className="w-4 h-4 text-amber-600" />
-            <span>Setup & Readiness Checklist</span>
-          </h3>
-          <div className="space-y-2">
-            {warnings.map((w, idx) => (
-              <div
-                key={idx}
-                className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between gap-3 text-xs text-amber-900"
-              >
-                <span>{w.text}</span>
-                <button
-                  onClick={() => onNavigate(w.tab)}
-                  className="font-bold underline hover:text-amber-700 whitespace-nowrap shrink-0 flex items-center gap-1"
+      {/* 4 Real-Time KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+        {/* Card 1: Real-Time Revenue */}
+        <div className="bg-white rounded-3xl p-6 border border-[#e0d6c8]/80 shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-xs font-bold uppercase tracking-wider text-[#7a6e65]">
+              Live Order Revenue
+            </span>
+            <div className="w-10 h-10 rounded-2xl bg-[#2d6a4f]/10 text-[#2d6a4f] flex items-center justify-center">
+              <TrendingUp className="w-5 h-5" />
+            </div>
+          </div>
+          <div>
+            <div
+              className="text-3xl font-black text-[#1a1a1a]"
+              style={{ fontFamily: "'Playfair Display', serif" }}
+            >
+              {currency}
+              {totalRevenue.toFixed(2)}
+            </div>
+            <div className="flex items-center justify-between mt-3 pt-3 border-t border-[#f0e8dc] text-xs text-[#7a6e65]">
+              <span>From {validOrders.length} valid orders</span>
+              <span className="font-semibold text-[#2d6a4f]">{deliveredOrders} completed</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 2: Live Kitchen Orders */}
+        <div
+          onClick={() => onNavigateTab('orders')}
+          className="bg-white rounded-3xl p-6 border border-[#e0d6c8]/80 shadow-sm flex flex-col justify-between cursor-pointer hover:border-[#e8281a] transition-all group"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-xs font-bold uppercase tracking-wider text-[#7a6e65]">
+              Live Food Orders
+            </span>
+            <div className="w-10 h-10 rounded-2xl bg-[#e8281a]/10 text-[#e8281a] flex items-center justify-center group-hover:bg-[#e8281a] group-hover:text-white transition-colors">
+              <ShoppingBag className="w-5 h-5" />
+            </div>
+          </div>
+          <div>
+            <div
+              className="text-3xl font-black text-[#1a1a1a]"
+              style={{ fontFamily: "'Playfair Display', serif" }}
+            >
+              {orders.length}
+            </div>
+            <div className="flex items-center justify-between mt-3 pt-3 border-t border-[#f0e8dc] text-xs text-[#7a6e65]">
+              <span>
+                <strong className="text-[#e8281a]">{activeKitchenOrders.length}</strong> active now
+              </span>
+              <span>
+                WA: {whatsappOrdersCount} • Direct: {directOrdersCount}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 3: Table Reservations & Inquiries */}
+        <div
+          onClick={() => onNavigateTab('orders')}
+          className="bg-white rounded-3xl p-6 border border-[#e0d6c8]/80 shadow-sm flex flex-col justify-between cursor-pointer hover:border-[#f6a623] transition-all group"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-xs font-bold uppercase tracking-wider text-[#7a6e65]">
+              Table Bookings & Messages
+            </span>
+            <div className="w-10 h-10 rounded-2xl bg-[#f6a623]/15 text-[#9a6200] flex items-center justify-center">
+              <CalendarCheck className="w-5 h-5" />
+            </div>
+          </div>
+          <div>
+            <div
+              className="text-3xl font-black text-[#1a1a1a]"
+              style={{ fontFamily: "'Playfair Display', serif" }}
+            >
+              {reservations.length}
+            </div>
+            <div className="flex items-center justify-between mt-3 pt-3 border-t border-[#f0e8dc] text-xs text-[#7a6e65]">
+              <span>
+                <strong className="text-[#9a6200]">{pendingReservations.length}</strong> pending tables
+              </span>
+              <span>{unreadMessages.length} messages</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 4: Live Menu Dishes */}
+        <div
+          onClick={() => onNavigateTab('items')}
+          className="bg-white rounded-3xl p-6 border border-[#e0d6c8]/80 shadow-sm flex flex-col justify-between cursor-pointer hover:border-[#2d6a4f] transition-all"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-xs font-bold uppercase tracking-wider text-[#7a6e65]">
+              Active Menu Dishes
+            </span>
+            <div className="w-10 h-10 rounded-2xl bg-[#1a1a1a]/5 text-[#1a1a1a] flex items-center justify-center">
+              <UtensilsCrossed className="w-5 h-5" />
+            </div>
+          </div>
+          <div>
+            <div
+              className="text-3xl font-black text-[#1a1a1a]"
+              style={{ fontFamily: "'Playfair Display', serif" }}
+            >
+              {availableItemsCount}{' '}
+              <span className="text-base font-medium text-[#7a6e65]">/ {totalItemsCount}</span>
+            </div>
+            <div className="flex items-center justify-between mt-3 pt-3 border-t border-[#f0e8dc] text-xs text-[#7a6e65]">
+              <span>Across {activeCategoriesCount} categories</span>
+              <span className="font-semibold text-[#e8281a]">
+                {data.offers.filter(o => o.isActive).length} active promos
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Two-Column Grid: Live Orders & Reservations + Menu Distribution */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Left 7 Columns: Live Orders & Table Reservations Feed */}
+        <div className="lg:col-span-7 space-y-6">
+          {/* Live Incoming Orders Card */}
+          <div className="bg-white rounded-3xl p-6 border border-[#e0d6c8]/80 shadow-sm">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h3
+                  className="text-lg font-bold text-[#1a1a1a]"
+                  style={{ fontFamily: "'Playfair Display', serif" }}
                 >
-                  <span>{w.action}</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
+                  Recent Live Orders
+                </h3>
+                <p className="text-xs text-[#7a6e65]">
+                  Real-time orders placed by customers from your website checkout
+                </p>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Real Metric Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Categories Card */}
-        <div className="p-4 bg-white rounded-2xl border border-neutral-200 shadow-xs space-y-2">
-          <div className="flex items-center justify-between text-neutral-500">
-            <span className="text-xs font-semibold uppercase tracking-wider">Categories</span>
-            <FolderTree className="w-4 h-4 text-amber-700" />
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-bold tabular-nums text-neutral-900">{totalCategories}</span>
-            <span className="text-xs text-neutral-500">({activeCategories} active)</span>
-          </div>
-          <button
-            onClick={() => onNavigate('categories')}
-            className="text-xs font-semibold text-amber-800 hover:text-amber-900 pt-1 block"
-          >
-            Manage Categories →
-          </button>
-        </div>
-
-        {/* Menu Items Card */}
-        <div className="p-4 bg-white rounded-2xl border border-neutral-200 shadow-xs space-y-2">
-          <div className="flex items-center justify-between text-neutral-500">
-            <span className="text-xs font-semibold uppercase tracking-wider">Menu Dishes</span>
-            <Utensils className="w-4 h-4 text-amber-700" />
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-bold tabular-nums text-neutral-900">{totalItems}</span>
-            <span className="text-xs text-neutral-500">({bestsellersCount} bestsellers)</span>
-          </div>
-          <button
-            onClick={() => onNavigate('items')}
-            className="text-xs font-semibold text-amber-800 hover:text-amber-900 pt-1 block"
-          >
-            Manage Menu Dishes →
-          </button>
-        </div>
-
-        {/* Stock Status Card */}
-        <div className="p-4 bg-white rounded-2xl border border-neutral-200 shadow-xs space-y-2">
-          <div className="flex items-center justify-between text-neutral-500">
-            <span className="text-xs font-semibold uppercase tracking-wider">Kitchen Availability</span>
-            <AlertTriangle className={`w-4 h-4 ${unavailableItems > 0 ? 'text-red-500' : 'text-emerald-500'}`} />
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-bold tabular-nums text-neutral-900">
-              {totalItems - unavailableItems}
-            </span>
-            <span className="text-xs text-neutral-500">/ {totalItems} available</span>
-          </div>
-          <button
-            onClick={() => onNavigate('stock')}
-            className="text-xs font-semibold text-amber-800 hover:text-amber-900 pt-1 block"
-          >
-            Quick Stock Toggles →
-          </button>
-        </div>
-
-        {/* Database Mode Card */}
-        <div className="p-4 bg-white rounded-2xl border border-neutral-200 shadow-xs space-y-2">
-          <div className="flex items-center justify-between text-neutral-500">
-            <span className="text-xs font-semibold uppercase tracking-wider">Database Connection</span>
-            <Database className="w-4 h-4 text-amber-700" />
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className={`text-sm font-bold ${isConnected ? 'text-emerald-700' : 'text-amber-700'}`}>
-              {isConnected ? 'Supabase Connected' : 'Local Storage Demo'}
-            </span>
-          </div>
-          <button
-            onClick={() => onNavigate('database-setup')}
-            className="text-xs font-semibold text-amber-800 hover:text-amber-900 pt-1 block"
-          >
-            Connection Wizard →
-          </button>
-        </div>
-      </div>
-
-      {/* Fulfillment Status Matrix */}
-      <div className="p-5 bg-white rounded-2xl border border-neutral-200 shadow-xs space-y-4">
-        <h3 className="text-sm font-bold text-neutral-900 flex items-center gap-2">
-          <Truck className="w-4 h-4 text-amber-700" />
-          <span>Ordering & Delivery Capabilities</span>
-        </h3>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-          <div className="p-3 bg-neutral-50 rounded-xl space-y-1">
-            <div className="flex items-center justify-between font-semibold">
-              <span>Home Delivery</span>
-              <span className={orderSettings.acceptHomeDelivery ? 'text-emerald-700' : 'text-neutral-400'}>
-                {orderSettings.acceptHomeDelivery ? 'Enabled' : 'Disabled'}
-              </span>
+              <button
+                onClick={() => onNavigateTab('orders')}
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-[#e8281a] hover:underline cursor-pointer"
+              >
+                <span>View All ({orders.length})</span>
+                <ArrowUpRight className="w-3.5 h-3.5" />
+              </button>
             </div>
-            <p className="text-neutral-500">Fee: {profile.currencySymbol}{orderSettings.deliveryFee} · Free at {profile.currencySymbol}{orderSettings.freeDeliveryThreshold}</p>
+
+            {orders.length === 0 ? (
+              <div className="rounded-2xl bg-[#fff8f0] border border-dashed border-[#e0d6c8] p-8 text-center">
+                <ShoppingBag className="w-8 h-8 text-[#7a6e65] mx-auto mb-2 opacity-60" />
+                <p className="text-sm font-semibold text-[#1a1a1a]">No Customer Orders Yet</p>
+                <p className="text-xs text-[#7a6e65] mt-1 max-w-md mx-auto">
+                  Zero fake orders are shown. As soon as a customer places an order via WhatsApp or Direct Checkout on the website, it will appear here in real time.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {orders.slice(0, 5).map(order => (
+                  <div
+                    key={order.id}
+                    className="p-4 rounded-2xl bg-[#fff8f0] border border-[#e0d6c8]/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-sm text-[#1a1a1a]">{order.orderNumber}</span>
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${statusBadgeStyle(
+                            order.status
+                          )}`}
+                        >
+                          {order.status}
+                        </span>
+                        <span className="text-[11px] font-medium text-[#7a6e65] capitalize">
+                          • {order.orderType}
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#5a524c] mt-1">
+                        <strong>{order.customerName}</strong> ({order.customerPhone}) —{' '}
+                        {order.items.map(i => `${i.quantity}x ${i.name}`).join(', ')}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="font-bold text-sm text-[#1a1a1a] mr-2">
+                        {currency}
+                        {Number(order.total).toFixed(2)}
+                      </span>
+                      {order.status === 'pending' && (
+                        <button
+                          onClick={() => updateOrderStatus(order.id, 'preparing')}
+                          className="px-3 py-1.5 rounded-xl bg-[#e8281a] text-white text-xs font-semibold hover:bg-[#c01f12] transition-all cursor-pointer"
+                        >
+                          Accept & Prepare
+                        </button>
+                      )}
+                      {order.status === 'preparing' && (
+                        <button
+                          onClick={() => updateOrderStatus(order.id, 'delivered')}
+                          className="px-3 py-1.5 rounded-xl bg-[#2d6a4f] text-white text-xs font-semibold hover:bg-[#23533d] transition-all cursor-pointer"
+                        >
+                          Mark Delivered
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          <div className="p-3 bg-neutral-50 rounded-xl space-y-1">
-            <div className="flex items-center justify-between font-semibold">
-              <span>Takeaway / Pickup</span>
-              <span className={orderSettings.acceptTakeaway ? 'text-emerald-700' : 'text-neutral-400'}>
-                {orderSettings.acceptTakeaway ? 'Enabled' : 'Disabled'}
-              </span>
+          {/* Live Table Reservations Card */}
+          <div className="bg-white rounded-3xl p-6 border border-[#e0d6c8]/80 shadow-sm">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h3
+                  className="text-lg font-bold text-[#1a1a1a]"
+                  style={{ fontFamily: "'Playfair Display', serif" }}
+                >
+                  Recent Table Reservations
+                </h3>
+                <p className="text-xs text-[#7a6e65]">
+                  Live bookings submitted from the website reservation form
+                </p>
+              </div>
+              <button
+                onClick={() => onNavigateTab('orders')}
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-[#e8281a] hover:underline cursor-pointer"
+              >
+                <span>Manage Bookings ({reservations.length})</span>
+                <ArrowUpRight className="w-3.5 h-3.5" />
+              </button>
             </div>
-            <p className="text-neutral-500">Prep time: ~{orderSettings.estimatedPickupTime}</p>
+
+            {reservations.length === 0 ? (
+              <div className="rounded-2xl bg-[#fff8f0] border border-dashed border-[#e0d6c8] p-8 text-center">
+                <CalendarCheck className="w-8 h-8 text-[#7a6e65] mx-auto mb-2 opacity-60" />
+                <p className="text-sm font-semibold text-[#1a1a1a]">No Table Reservations Yet</p>
+                <p className="text-xs text-[#7a6e65] mt-1 max-w-md mx-auto">
+                  When guests reserve a table on your website, their booking details will appear here immediately.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {reservations.slice(0, 4).map(res => (
+                  <div
+                    key={res.id}
+                    className="p-4 rounded-2xl bg-[#fff8f0] border border-[#e0d6c8]/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-sm text-[#1a1a1a]">{res.guestName}</span>
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                            res.status === 'confirmed'
+                              ? 'bg-[#2d6a4f]/15 text-[#2d6a4f]'
+                              : res.status === 'cancelled'
+                              ? 'bg-neutral-200 text-neutral-600'
+                              : 'bg-[#f6a623]/20 text-[#9a6200]'
+                          }`}
+                        >
+                          {res.status}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-[#7a6e65] mt-1">
+                        <span className="inline-flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5 text-[#e8281a]" />
+                          {res.reservationDate} at {res.reservationTime}
+                        </span>
+                        <span className="inline-flex items-center gap-1">
+                          <Users className="w-3.5 h-3.5 text-[#2d6a4f]" />
+                          {res.partySize}
+                        </span>
+                        <span className="inline-flex items-center gap-1">
+                          <Phone className="w-3.5 h-3.5" />
+                          {res.guestPhone}
+                        </span>
+                      </div>
+                    </div>
+
+                    {res.status === 'pending' && (
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => updateReservationStatus(res.id, 'confirmed')}
+                          className="px-3 py-1.5 rounded-xl bg-[#2d6a4f] text-white text-xs font-semibold hover:bg-[#23533d] transition-all cursor-pointer"
+                        >
+                          Confirm Table
+                        </button>
+                        <button
+                          onClick={() => updateReservationStatus(res.id, 'cancelled')}
+                          className="px-3 py-1.5 rounded-xl bg-neutral-200 text-neutral-700 text-xs font-semibold hover:bg-neutral-300 transition-all cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right 5 Columns: Menu Distribution & Quick Customization Shortcuts */}
+        <div className="lg:col-span-5 space-y-6">
+          {/* Menu Category Distribution */}
+          <div className="bg-white rounded-3xl p-6 border border-[#e0d6c8]/80 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3
+                  className="text-lg font-bold text-[#1a1a1a]"
+                  style={{ fontFamily: "'Playfair Display', serif" }}
+                >
+                  Menu Categories Breakdown
+                </h3>
+                <p className="text-xs text-[#7a6e65]">
+                  Live dish count and stock status per category
+                </p>
+              </div>
+              <button
+                onClick={() => onNavigateTab('categories')}
+                className="text-xs font-bold text-[#e8281a] hover:underline cursor-pointer"
+              >
+                Edit Categories
+              </button>
+            </div>
+
+            <div className="space-y-3.5">
+              {categoryStats.map(cat => (
+                <div key={cat.id} className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-[#1a1a1a] flex items-center gap-2">
+                      <span>{cat.name}</span>
+                    </span>
+                    <span className="text-[#7a6e65]">
+                      <strong className="text-[#1a1a1a]">{cat.available}</strong> / {cat.count} in stock
+                    </span>
+                  </div>
+                  <div className="w-full h-2 rounded-full bg-[#fff8f0] overflow-hidden border border-[#e0d6c8]/60">
+                    <div
+                      className="h-full rounded-full bg-[#e8281a] transition-all duration-300"
+                      style={{ width: `${Math.max(cat.percentage, 6)}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
-          <div className="p-3 bg-neutral-50 rounded-xl space-y-1">
-            <div className="flex items-center justify-between font-semibold">
-              <span>WhatsApp Direct Checkout</span>
-              <span className={orderSettings.enableWhatsAppOrdering ? 'text-emerald-700' : 'text-neutral-400'}>
-                {orderSettings.enableWhatsAppOrdering ? 'Active' : 'Off'}
-              </span>
+          {/* Complete Website Customization Shortcuts */}
+          <div className="bg-white rounded-3xl p-6 border border-[#e0d6c8]/80 shadow-sm">
+            <h3
+              className="text-lg font-bold text-[#1a1a1a] mb-1"
+              style={{ fontFamily: "'Playfair Display', serif" }}
+            >
+              Website Customization Studio
+            </h3>
+            <p className="text-xs text-[#7a6e65] mb-4">
+              Every part of the Sarab website is 100% customizable and syncs with Supabase:
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <button
+                onClick={() => onNavigateTab('content')}
+                className="p-3.5 rounded-2xl bg-[#fff8f0] hover:bg-[#f3e9dc] border border-[#e0d6c8]/80 text-left transition-all flex items-center justify-between group cursor-pointer"
+              >
+                <div>
+                  <div className="text-xs font-bold text-[#1a1a1a]">Hero, Chefs & Timeline</div>
+                  <div className="text-[11px] text-[#7a6e65]">Banners, deals & stories</div>
+                </div>
+                <Flame className="w-4 h-4 text-[#e8281a] group-hover:translate-x-0.5 transition-transform" />
+              </button>
+
+              <button
+                onClick={() => onNavigateTab('items')}
+                className="p-3.5 rounded-2xl bg-[#fff8f0] hover:bg-[#f3e9dc] border border-[#e0d6c8]/80 text-left transition-all flex items-center justify-between group cursor-pointer"
+              >
+                <div>
+                  <div className="text-xs font-bold text-[#1a1a1a]">Menu Dishes & Prices</div>
+                  <div className="text-[11px] text-[#7a6e65]">{totalItemsCount} customizable items</div>
+                </div>
+                <UtensilsCrossed className="w-4 h-4 text-[#e8281a] group-hover:translate-x-0.5 transition-transform" />
+              </button>
+
+              <button
+                onClick={() => onNavigateTab('branding')}
+                className="p-3.5 rounded-2xl bg-[#fff8f0] hover:bg-[#f3e9dc] border border-[#e0d6c8]/80 text-left transition-all flex items-center justify-between group cursor-pointer"
+              >
+                <div>
+                  <div className="text-xs font-bold text-[#1a1a1a]">Theme Colors & Fonts</div>
+                  <div className="text-[11px] text-[#7a6e65]">Customize brand palette</div>
+                </div>
+                <Palette className="w-4 h-4 text-[#f6a623] group-hover:translate-x-0.5 transition-transform" />
+              </button>
+
+              <button
+                onClick={() => onNavigateTab('database')}
+                className="p-3.5 rounded-2xl bg-[#fff8f0] hover:bg-[#f3e9dc] border border-[#e0d6c8]/80 text-left transition-all flex items-center justify-between group cursor-pointer"
+              >
+                <div>
+                  <div className="text-xs font-bold text-[#1a1a1a]">Supabase Cloud Sync</div>
+                  <div className="text-[11px] text-[#7a6e65]">
+                    {isConnected ? 'Connected & Live' : 'Configure SQL Sync'}
+                  </div>
+                </div>
+                <Database className="w-4 h-4 text-[#2d6a4f] group-hover:translate-x-0.5 transition-transform" />
+              </button>
             </div>
-            <p className="text-neutral-500">Number: +{profile.whatsappNumber}</p>
           </div>
         </div>
       </div>

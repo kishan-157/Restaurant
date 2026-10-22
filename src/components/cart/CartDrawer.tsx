@@ -1,14 +1,29 @@
 import React, { useState } from 'react';
-import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight, MessageCircle, AlertCircle, CheckCircle2 } from 'lucide-react';
+import {
+  X,
+  Trash2,
+  Plus,
+  Minus,
+  ShoppingBag,
+  ArrowRight,
+  MessageCircle,
+  AlertCircle,
+  CheckCircle2,
+  ChefHat,
+  Clock,
+  Sparkles,
+  PhoneCall,
+  Check,
+} from 'lucide-react';
 import { useCart } from '../../context/CartContext';
 import { useRestaurant } from '../../context/RestaurantContext';
-import { CheckoutDetails, OrderType } from '../../types';
+import { CheckoutDetails, OrderType, OrderItemSummary, Order } from '../../types';
 import { VegNonVegBadge } from '../common/DietaryBadge';
 import { generateWhatsAppOrderMessage, buildWhatsAppLink } from '../../lib/whatsapp';
 
 export const CartDrawer: React.FC = () => {
   const { cart, isCartOpen, setIsCartOpen, removeFromCart, updateQuantity, clearCart, subtotal } = useCart();
-  const { data } = useRestaurant();
+  const { data, addOrder } = useRestaurant();
   const { profile, orderSettings } = data;
 
   const [orderType, setOrderType] = useState<OrderType>(
@@ -24,6 +39,8 @@ export const CartDrawer: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState('');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingWhatsAppUrl, setPendingWhatsAppUrl] = useState('');
+  const [lastPlacedOrder, setLastPlacedOrder] = useState<Order | null>(null);
+  const [showAdminSuccessModal, setShowAdminSuccessModal] = useState(false);
 
   if (!isCartOpen) return null;
 
@@ -37,35 +54,65 @@ export const CartDrawer: React.FC = () => {
   const amountToFreeDelivery = freeThreshold > subtotal ? freeThreshold - subtotal : 0;
   const isBelowMinOrder = isDelivery && subtotal < orderSettings.minOrderAmount;
 
-  const handleCheckoutClick = () => {
+  // Ordering mode toggles
+  const isWhatsAppEnabled = orderSettings.enableWhatsAppOrdering !== false;
+  const isAdminPanelEnabled = orderSettings.enableAdminPanelOrdering !== false;
+  const isAnyOrderingEnabled = (isWhatsAppEnabled || isAdminPanelEnabled) && !orderSettings.temporarilyPauseOrders;
+
+  const validateCheckout = (): boolean => {
     setErrorMsg('');
 
     if (orderSettings.temporarilyPauseOrders) {
       setErrorMsg(orderSettings.pauseMessage || 'Orders are temporarily paused.');
-      return;
+      return false;
+    }
+
+    if (!isAnyOrderingEnabled) {
+      setErrorMsg('Online ordering is currently unavailable. Please call us directly.');
+      return false;
     }
 
     if (!customerName.trim()) {
       setErrorMsg('Please enter your full name.');
-      return;
+      return false;
     }
 
     if (!customerPhone.trim() || customerPhone.replace(/\D/g, '').length < 10) {
       setErrorMsg('Please enter a valid 10-digit mobile number.');
-      return;
+      return false;
     }
 
     if (isDelivery && !deliveryAddress.trim()) {
       setErrorMsg('Please provide your complete delivery address.');
-      return;
+      return false;
     }
 
     if (isBelowMinOrder) {
       setErrorMsg(`Minimum order for home delivery is ${profile.currencySymbol}${orderSettings.minOrderAmount}. Please add more items.`);
-      return;
+      return false;
     }
 
-    // Build checkout object
+    return true;
+  };
+
+  const buildOrderItemSummaries = (): OrderItemSummary[] => {
+    return cart.map((ci) => ({
+      id: ci.item.id,
+      name: ci.item.name,
+      quantity: ci.quantity,
+      unitPrice: ci.unitPrice,
+      variantName: ci.selectedVariant?.name,
+      addonNames: ci.selectedAddons.map((a) => a.name),
+      customerNote: ci.customerNote,
+      lineTotal: ci.lineTotal,
+      isVeg: ci.item.isVeg,
+    }));
+  };
+
+  // Flow A: Order via WhatsApp (Logs to Admin Panel & opens WhatsApp)
+  const handleWhatsAppCheckout = () => {
+    if (!validateCheckout()) return;
+
     const checkout: CheckoutDetails = {
       customerName: customerName.trim(),
       customerPhone: customerPhone.trim(),
@@ -75,7 +122,25 @@ export const CartDrawer: React.FC = () => {
       specialInstructions: specialInstructions.trim(),
     };
 
-    // Generate formatted message
+    // 1. Log order to Admin Panel
+    const createdOrder = addOrder({
+      customerName: customerName.trim(),
+      customerPhone: customerPhone.trim(),
+      orderType,
+      deliveryAddress: deliveryAddress.trim(),
+      deliveryLandmark: deliveryLandmark.trim(),
+      specialInstructions: specialInstructions.trim(),
+      items: buildOrderItemSummaries(),
+      subtotal,
+      deliveryFee,
+      total: grandTotal,
+      channel: 'whatsapp',
+      status: 'pending',
+    });
+
+    setLastPlacedOrder(createdOrder);
+
+    // 2. Generate WhatsApp link with order ID included
     const message = generateWhatsAppOrderMessage(
       cart,
       checkout,
@@ -86,7 +151,8 @@ export const CartDrawer: React.FC = () => {
       grandTotal
     );
 
-    const { url, isValid, error } = buildWhatsAppLink(profile.whatsappNumber, message);
+    const fullMessageWithId = `*ORDER TICKET #${createdOrder.orderNumber}*\n` + message;
+    const { url, isValid, error } = buildWhatsAppLink(profile.whatsappNumber, fullMessageWithId);
 
     if (!isValid || !url) {
       setErrorMsg(error || 'Could not generate WhatsApp link. Check phone number settings.');
@@ -101,8 +167,33 @@ export const CartDrawer: React.FC = () => {
     if (pendingWhatsAppUrl) {
       window.open(pendingWhatsAppUrl, '_blank', 'noopener,noreferrer');
       setShowConfirmModal(false);
-      // Keep cart or allow customer to clear
+      clearCart();
     }
+  };
+
+  // Flow B: Direct In-App Order to Admin Panel
+  const handleAdminPanelCheckout = () => {
+    if (!validateCheckout()) return;
+
+    // Log directly to Admin Panel Live Orders
+    const createdOrder = addOrder({
+      customerName: customerName.trim(),
+      customerPhone: customerPhone.trim(),
+      orderType,
+      deliveryAddress: deliveryAddress.trim(),
+      deliveryLandmark: deliveryLandmark.trim(),
+      specialInstructions: specialInstructions.trim(),
+      items: buildOrderItemSummaries(),
+      subtotal,
+      deliveryFee,
+      total: grandTotal,
+      channel: 'admin',
+      status: 'pending',
+    });
+
+    setLastPlacedOrder(createdOrder);
+    setShowAdminSuccessModal(true);
+    clearCart();
   };
 
   return (
@@ -427,20 +518,64 @@ export const CartDrawer: React.FC = () => {
                 </div>
               </div>
 
-              {/* Order via WhatsApp Button */}
-              <button
-                onClick={handleCheckoutClick}
-                disabled={orderSettings.temporarilyPauseOrders}
-                className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:bg-neutral-300 disabled:cursor-not-allowed text-white font-semibold text-sm rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all"
-              >
-                <MessageCircle className="w-4 h-4 fill-white text-white" />
-                <span>Order on WhatsApp</span>
-                <ArrowRight className="w-4 h-4 ml-1" />
-              </button>
-
-              <p className="text-[11px] text-center text-neutral-500 leading-tight">
-                Clicking opens WhatsApp with your pre-filled bill. No immediate charge; restaurant confirms order directly with you.
-              </p>
+              {/* Order Buttons based on enabled channel settings */}
+              {(!isAnyOrderingEnabled || orderSettings.temporarilyPauseOrders) ? (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-center space-y-1">
+                  <p className="text-xs font-bold text-amber-900">Online Ordering Currently Paused</p>
+                  <p className="text-[11px] text-amber-700">
+                    {orderSettings.pauseMessage || 'Please call the restaurant directly to place your order.'}
+                  </p>
+                </div>
+              ) : isAdminPanelEnabled && isWhatsAppEnabled ? (
+                <div className="space-y-2">
+                  <button
+                    onClick={handleAdminPanelCheckout}
+                    className="w-full py-3 px-4 bg-stone-900 hover:bg-black active:scale-[0.99] text-white font-semibold text-sm rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all"
+                  >
+                    <ChefHat className="w-4 h-4 text-amber-400" />
+                    <span>Place Order (Send to Kitchen)</span>
+                    <ArrowRight className="w-4 h-4 ml-1" />
+                  </button>
+                  <button
+                    onClick={handleWhatsAppCheckout}
+                    className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white font-semibold text-xs rounded-xl flex items-center justify-center gap-2 shadow-xs transition-all"
+                  >
+                    <MessageCircle className="w-4 h-4 fill-white text-white" />
+                    <span>Or Order via WhatsApp</span>
+                  </button>
+                  <p className="text-[11px] text-center text-neutral-500 leading-tight pt-1">
+                    Orders are instantly submitted to our Kitchen Admin board for live tracking.
+                  </p>
+                </div>
+              ) : isAdminPanelEnabled ? (
+                <div className="space-y-2">
+                  <button
+                    onClick={handleAdminPanelCheckout}
+                    className="w-full py-3.5 px-4 bg-stone-900 hover:bg-black active:scale-[0.99] text-white font-semibold text-sm rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all"
+                  >
+                    <ChefHat className="w-4 h-4 text-amber-400" />
+                    <span>Place Direct Order (Kitchen Queue)</span>
+                    <ArrowRight className="w-4 h-4 ml-1" />
+                  </button>
+                  <p className="text-[11px] text-center text-neutral-500 leading-tight">
+                    Your order will be instantly received on the restaurant's live order screen.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <button
+                    onClick={handleWhatsAppCheckout}
+                    className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white font-semibold text-sm rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all"
+                  >
+                    <MessageCircle className="w-4 h-4 fill-white text-white" />
+                    <span>Order on WhatsApp</span>
+                    <ArrowRight className="w-4 h-4 ml-1" />
+                  </button>
+                  <p className="text-[11px] text-center text-neutral-500 leading-tight">
+                    Opens WhatsApp with your pre-filled bill and logs order in restaurant admin.
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -455,16 +590,19 @@ export const CartDrawer: React.FC = () => {
             </div>
 
             <div>
+              <span className="inline-block px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 rounded-full mb-1">
+                Order #{lastPlacedOrder?.orderNumber || 'PENDING'} Logged
+              </span>
               <h3 className="text-lg font-bold text-neutral-900">Send Order via WhatsApp</h3>
-              <p className="text-xs text-neutral-600 mt-1.5 leading-relaxed">
-                We have generated your order for <strong>{profile.name}</strong>. WhatsApp will open with your pre-filled order message. Please press <strong>Send</strong> in WhatsApp to submit your request!
+              <p className="text-xs text-neutral-600 mt-1 leading-relaxed">
+                Your order is logged in our Admin Panel. WhatsApp will open with your pre-filled bill so you can chat directly with <strong>{profile.name}</strong>.
               </p>
             </div>
 
             <div className="p-3 bg-neutral-50 rounded-xl text-left text-xs space-y-1">
               <div className="flex justify-between font-medium">
                 <span>Items:</span>
-                <span>{cart.length} dishes</span>
+                <span>{lastPlacedOrder?.items.length || cart.length} dishes</span>
               </div>
               <div className="flex justify-between font-medium">
                 <span>Total Amount:</span>
@@ -474,8 +612,8 @@ export const CartDrawer: React.FC = () => {
                 </span>
               </div>
               <div className="flex justify-between text-neutral-500">
-                <span>Destination:</span>
-                <span>+{profile.whatsappNumber}</span>
+                <span>Admin Kitchen Status:</span>
+                <span className="text-emerald-700 font-semibold">Registered in Admin Panel</span>
               </div>
             </div>
 
@@ -484,7 +622,7 @@ export const CartDrawer: React.FC = () => {
                 onClick={() => setShowConfirmModal(false)}
                 className="flex-1 py-2.5 px-3 text-xs font-semibold text-neutral-700 bg-neutral-100 hover:bg-neutral-200 rounded-xl transition-colors"
               >
-                Back to Cart
+                Cancel
               </button>
               <button
                 onClick={executeWhatsAppRedirect}
@@ -493,6 +631,88 @@ export const CartDrawer: React.FC = () => {
                 <CheckCircle2 className="w-4 h-4" />
                 <span>Open WhatsApp</span>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Direct In-App Admin Panel Order Success Modal */}
+      {showAdminSuccessModal && lastPlacedOrder && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl border border-neutral-200 text-center animate-in zoom-in-95 duration-150">
+            <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 mx-auto flex items-center justify-center shadow-inner">
+              <ChefHat className="w-7 h-7 text-emerald-700" />
+            </div>
+
+            <div className="space-y-1">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 text-amber-900 text-xs font-bold rounded-full">
+                <Clock className="w-3.5 h-3.5" />
+                <span>Ticket #{lastPlacedOrder.orderNumber}</span>
+              </div>
+              <h3 className="text-xl font-bold font-heading text-neutral-900">
+                Order Received in Kitchen!
+              </h3>
+              <p className="text-xs text-neutral-600 max-w-xs mx-auto">
+                Thank you <strong>{lastPlacedOrder.customerName}</strong>! Your order has been placed into our Live Admin Panel queue.
+              </p>
+            </div>
+
+            {/* Estimated Time Badge */}
+            <div className="p-3 bg-neutral-50 rounded-xl text-left text-xs space-y-2 border border-neutral-200">
+              <div className="flex items-center justify-between">
+                <span className="text-neutral-500 font-medium">Fulfillment Type:</span>
+                <span className="font-bold text-neutral-900 capitalize">
+                  {lastPlacedOrder.orderType === 'delivery' ? 'Home Delivery' : 'Pickup & Takeaway'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-neutral-500 font-medium">Estimated Time:</span>
+                <span className="font-bold text-amber-800">
+                  {lastPlacedOrder.orderType === 'delivery'
+                    ? orderSettings.estimatedDeliveryTime
+                    : orderSettings.estimatedPickupTime}
+                </span>
+              </div>
+              {lastPlacedOrder.deliveryAddress && (
+                <div className="pt-1 border-t border-neutral-200 text-neutral-600">
+                  <span className="text-neutral-400 block text-[10px] uppercase font-bold">Deliver To:</span>
+                  <p className="line-clamp-2">{lastPlacedOrder.deliveryAddress}</p>
+                </div>
+              )}
+              <div className="pt-1 border-t border-neutral-200 flex justify-between font-medium">
+                <span>Total Bill ({lastPlacedOrder.items.length} items):</span>
+                <span className="text-sm font-bold text-neutral-900">
+                  {profile.currencySymbol}{lastPlacedOrder.total.toFixed(2)}
+                </span>
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="space-y-2 pt-2">
+              <button
+                onClick={() => {
+                  setShowAdminSuccessModal(false);
+                  setIsCartOpen(false);
+                }}
+                className="w-full py-3 px-4 text-xs font-semibold text-white bg-neutral-900 hover:bg-neutral-800 rounded-xl transition-colors shadow-sm flex items-center justify-center gap-1.5"
+              >
+                <Check className="w-4 h-4" />
+                <span>Done & Return to Menu</span>
+              </button>
+
+              {profile.whatsappNumber && (
+                <button
+                  onClick={() => {
+                    const msg = `Hi ${profile.name}, I placed Order Ticket #${lastPlacedOrder.orderNumber} for ${profile.currencySymbol}${lastPlacedOrder.total} (${lastPlacedOrder.customerName}, Phone: ${lastPlacedOrder.customerPhone}). Looking forward to it!`;
+                    const { url } = buildWhatsAppLink(profile.whatsappNumber, msg);
+                    if (url) window.open(url, '_blank', 'noopener,noreferrer');
+                  }}
+                  className="w-full py-2.5 px-3 text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 rounded-xl border border-emerald-200 transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  <span>Send Confirmation Copy to WhatsApp (Optional)</span>
+                </button>
+              )}
             </div>
           </div>
         </div>

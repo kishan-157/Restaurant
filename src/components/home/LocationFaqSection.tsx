@@ -1,175 +1,315 @@
 import React, { useState } from 'react';
-import { MapPin, Clock, Phone, MessageCircle, ChevronDown, ChevronUp, Users, ExternalLink } from 'lucide-react';
+import {
+  MapPin,
+  Phone,
+  Mail,
+  Clock,
+  Send,
+  CheckCircle2,
+  Instagram,
+  Facebook,
+  Twitter,
+  Users,
+  ChevronDown,
+} from 'lucide-react';
 import { useRestaurant } from '../../context/RestaurantContext';
+import { DEFAULT_RESTAURANT_DATA } from '../../data/defaultRestaurantData';
 
 interface LocationFaqSectionProps {
   onOpenCatering: () => void;
 }
 
 export const LocationFaqSection: React.FC<LocationFaqSectionProps> = ({ onOpenCatering }) => {
-  const { data } = useRestaurant();
-  const { profile, openingHours, faqs, websiteSections } = data;
-  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
+  const { data, addContactMessage } = useRestaurant();
+  const { profile, websiteSections, socials, faqs, openingHours } = data;
+  const locContent =
+    data.sectionContents?.location || DEFAULT_RESTAURANT_DATA.sectionContents!.location;
+  const faqContent = data.sectionContents?.faq || DEFAULT_RESTAURANT_DATA.sectionContents!.faq;
 
-  const toggleFaq = (idx: number) => {
-    setOpenFaqIndex(openFaqIndex === idx ? null : idx);
+  const [ctcName, setCtcName] = useState('');
+  const [ctcEmail, setCtcEmail] = useState('');
+  const [ctcSubject, setCtcSubject] = useState('');
+  const [ctcMessage, setCtcMessage] = useState('');
+  const [ctcSent, setCtcSent] = useState(false);
+  const [openFaqId, setOpenFaqId] = useState<string | null>(faqs[0]?.id || null);
+
+  const handleContactSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ctcName.trim() || !ctcMessage.trim()) return;
+    addContactMessage({
+      name: ctcName.trim(),
+      email: ctcEmail.trim(),
+      subject: ctcSubject.trim(),
+      message: ctcMessage.trim(),
+    });
+    setCtcSent(true);
+    setCtcName('');
+    setCtcEmail('');
+    setCtcSubject('');
+    setCtcMessage('');
   };
 
-  const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-
   return (
-    <section id="location" className="py-16 bg-white border-b border-neutral-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
-        {/* Location & Opening Hours Row */}
-        {websiteSections.showLocationHours && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-            {/* Left: Contact & Address */}
-            <div className="lg:col-span-6 space-y-6">
+    <>
+      <section id="contact-section" className="py-18 sm:py-22 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <span className="slbl">{locContent.kicker || 'Get In Touch'}</span>
+            <h2 className="stitle">
+              {locContent.title ? (
+                locContent.title
+              ) : (
+                <>
+                  Contact <span>Us</span>
+                </>
+              )}
+            </h2>
+            <div className="sline" />
+            <p className="text-[#777777] text-sm sm:text-[15px] max-w-[480px] mx-auto leading-[1.8]">
+              {locContent.subtitle ||
+                "Have a question, feedback, or want to plan a special event? We'd love to hear from you."}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+            {/* Left Dark Contact Info Card */}
+            <div className="lg:col-span-4 bg-[#1a1a1a] rounded-[18px] p-8 sm:p-9 text-white flex flex-col justify-between">
               <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-amber-800">
-                  Find & Contact Us
-                </span>
-                <h2 className="text-3xl font-bold font-heading text-neutral-900 mt-1">
-                  Location & Dining Hours
-                </h2>
-                <p className="text-sm text-neutral-600 mt-2">
-                  Visit our dining courtyard or order doorstep takeaway directly.
+                <h4 className="font-heading text-2xl font-bold text-white mb-1.5">
+                  Let&apos;s Talk
+                </h4>
+                <p className="text-white/60 text-sm mb-7">
+                  Reach out to us directly or drop by our restaurant in the Food District.
                 </p>
-              </div>
 
-              <div className="p-5 bg-neutral-50 rounded-2xl border border-neutral-200 space-y-4">
-                <div className="flex items-start gap-3">
-                  <MapPin className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
-                  <div>
-                    <h4 className="text-sm font-bold text-neutral-900">Address</h4>
-                    <p className="text-xs sm:text-sm text-neutral-600 mt-0.5">
-                      {profile.address}, {profile.city} {profile.postalCode && `- ${profile.postalCode}`}
-                    </p>
-                    {profile.googleMapsUrl && (
-                      <a
-                        href={profile.googleMapsUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-800 hover:text-amber-900 mt-2"
-                      >
-                        <span>Open in Google Maps & Get Directions</span>
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </a>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 pt-3 border-t border-neutral-200">
-                  <Phone className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
-                  <div>
-                    <h4 className="text-sm font-bold text-neutral-900">Phone & Orders</h4>
-                    <p className="text-xs sm:text-sm text-neutral-600 mt-0.5">
-                      Phone: <a href={`tel:${profile.phone}`} className="hover:underline font-medium">{profile.phone}</a>
-                    </p>
-                    <p className="text-xs text-neutral-500 mt-0.5">
-                      WhatsApp: +{profile.whatsappNumber}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Catering card prompt */}
-                {websiteSections.showCateringInquiry && (
-                  <div className="p-3.5 bg-amber-50 rounded-xl border border-amber-200 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2.5">
-                      <Users className="w-4 h-4 text-amber-800" />
-                      <span className="text-xs font-semibold text-amber-900">
-                        Hosting a private party or banquet?
+                <div className="space-y-5">
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-10 h-10 rounded-[9px] bg-[#e8281a]/20 text-[#e8281a] flex items-center justify-center shrink-0">
+                      <MapPin className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <strong className="block text-[#aaaaaa] text-[11px] uppercase tracking-wider">
+                        Our Location
+                      </strong>
+                      <span className="text-white text-sm">
+                        {profile.address}, {profile.city}
                       </span>
                     </div>
-                    <button
-                      onClick={onOpenCatering}
-                      className="px-3 py-1.5 text-xs font-bold text-white bg-amber-800 hover:bg-amber-900 rounded-lg transition-colors shrink-0"
-                    >
-                      Inquire Now
-                    </button>
                   </div>
+
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-10 h-10 rounded-[9px] bg-[#e8281a]/20 text-[#e8281a] flex items-center justify-center shrink-0">
+                      <Phone className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <strong className="block text-[#aaaaaa] text-[11px] uppercase tracking-wider">
+                        Phone Number
+                      </strong>
+                      <span className="text-white text-sm">{profile.phone}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-10 h-10 rounded-[9px] bg-[#e8281a]/20 text-[#e8281a] flex items-center justify-center shrink-0">
+                      <Mail className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <strong className="block text-[#aaaaaa] text-[11px] uppercase tracking-wider">
+                        Email Address
+                      </strong>
+                      <span className="text-white text-sm">
+                        {profile.email || 'hello@sarabfood.com'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-10 h-10 rounded-[9px] bg-[#e8281a]/20 text-[#e8281a] flex items-center justify-center shrink-0">
+                      <Clock className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <strong className="block text-[#aaaaaa] text-[11px] uppercase tracking-wider">
+                        Opening Hours
+                      </strong>
+                      <span className="text-white text-sm">
+                        {openingHours.topbarHoursText || 'Wed - Sun: 9:00 AM - 11:00 PM'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-6 mt-6 border-t border-white/10 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  {socials.instagram && (
+                    <a
+                      href={socials.instagram}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label="Instagram"
+                      className="w-9 h-9 rounded-lg bg-white/10 hover:bg-[#e8281a] text-[#bbbbbb] hover:text-white flex items-center justify-center transition-colors"
+                    >
+                      <Instagram className="w-4 h-4" />
+                    </a>
+                  )}
+                  {socials.facebook && (
+                    <a
+                      href={socials.facebook}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label="Facebook"
+                      className="w-9 h-9 rounded-lg bg-white/10 hover:bg-[#e8281a] text-[#bbbbbb] hover:text-white flex items-center justify-center transition-colors"
+                    >
+                      <Facebook className="w-4 h-4" />
+                    </a>
+                  )}
+                  {socials.twitter && (
+                    <a
+                      href={socials.twitter}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label="Twitter"
+                      className="w-9 h-9 rounded-lg bg-white/10 hover:bg-[#e8281a] text-[#bbbbbb] hover:text-white flex items-center justify-center transition-colors"
+                    >
+                      <Twitter className="w-4 h-4" />
+                    </a>
+                  )}
+                </div>
+
+                {websiteSections.showCateringInquiry && (
+                  <button
+                    type="button"
+                    onClick={onOpenCatering}
+                    className="px-3.5 py-2 rounded-lg bg-[#f6a623] text-[#1a1a1a] text-xs font-bold inline-flex items-center gap-1.5 hover:bg-[#ffba42] transition-colors cursor-pointer"
+                  >
+                    <Users className="w-3.5 h-3.5" />
+                    <span>{locContent.cateringButtonText || 'Event Catering'}</span>
+                  </button>
                 )}
               </div>
             </div>
 
-            {/* Right: Opening Hours Schedule Table */}
-            <div className="lg:col-span-6">
-              <div className="p-6 bg-white rounded-2xl border border-neutral-200 shadow-xs space-y-4">
-                <div className="flex items-center gap-2 text-neutral-900 font-bold text-base">
-                  <Clock className="w-5 h-5 text-amber-700" />
-                  <h3>Weekly Service Schedule</h3>
+            {/* Right Contact Form */}
+            <div className="lg:col-span-8 bg-white rounded-[18px] p-7 sm:p-9 shadow-[0_6px_30px_rgba(0,0,0,0.08)] border border-neutral-100">
+              <form onSubmit={handleContactSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[13px] font-semibold text-[#1a1a1a] mb-1.5 block">
+                      Your Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={ctcName}
+                      onChange={(e) => {
+                        setCtcName(e.target.value);
+                        if (ctcSent) setCtcSent(false);
+                      }}
+                      placeholder="Enter your name"
+                      className="w-full border-2 border-[#eeeeee] focus:border-[#e8281a] rounded-[9px] px-4 py-2.5 text-sm text-[#1a1a1a] outline-none transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[13px] font-semibold text-[#1a1a1a] mb-1.5 block">
+                      Your Email *
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={ctcEmail}
+                      onChange={(e) => setCtcEmail(e.target.value)}
+                      placeholder="Enter your email"
+                      className="w-full border-2 border-[#eeeeee] focus:border-[#e8281a] rounded-[9px] px-4 py-2.5 text-sm text-[#1a1a1a] outline-none transition-colors"
+                    />
+                  </div>
                 </div>
 
-                <div className="divide-y divide-neutral-100 text-xs sm:text-sm">
-                  {daysOfWeek.map((day) => {
-                    const sched = openingHours.schedule?.[day];
-                    const isClosed = !sched || !sched.isOpen;
-
-                    return (
-                      <div key={day} className="py-2.5 flex items-center justify-between">
-                        <span className="font-medium text-neutral-800">{day}</span>
-                        {isClosed ? (
-                          <span className="text-red-600 font-semibold text-xs">Closed</span>
-                        ) : (
-                          <div className="text-right">
-                            <span className="text-neutral-900 font-semibold tabular-nums">
-                              {sched.openTime} - {sched.closeTime}
-                            </span>
-                            {sched.lunchCloseTime && (
-                              <span className="text-[11px] text-neutral-400 block">
-                                Lunch: {sched.lunchOpenTime} - {sched.lunchCloseTime}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                <div>
+                  <label className="text-[13px] font-semibold text-[#1a1a1a] mb-1.5 block">
+                    Subject
+                  </label>
+                  <input
+                    type="text"
+                    value={ctcSubject}
+                    onChange={(e) => setCtcSubject(e.target.value)}
+                    placeholder="How can we help you?"
+                    className="w-full border-2 border-[#eeeeee] focus:border-[#e8281a] rounded-[9px] px-4 py-2.5 text-sm text-[#1a1a1a] outline-none transition-colors"
+                  />
                 </div>
 
-                {openingHours.holidayNotice && (
-                  <div className="p-3 bg-neutral-50 rounded-xl text-xs text-neutral-600 italic border border-neutral-200/60">
-                    ℹ️ {openingHours.holidayNotice}
+                <div>
+                  <label className="text-[13px] font-semibold text-[#1a1a1a] mb-1.5 block">
+                    Message *
+                  </label>
+                  <textarea
+                    rows={4}
+                    required
+                    value={ctcMessage}
+                    onChange={(e) => setCtcMessage(e.target.value)}
+                    placeholder="Write your message here..."
+                    className="w-full border-2 border-[#eeeeee] focus:border-[#e8281a] rounded-[9px] px-4 py-2.5 text-sm text-[#1a1a1a] outline-none transition-colors"
+                  />
+                </div>
+
+                <button type="submit" className="btn-red">
+                  <Send className="w-4 h-4" />
+                  <span>Send Message</span>
+                </button>
+
+                {ctcSent && (
+                  <div className="p-4 rounded-xl bg-[#2d6a4f]/10 text-[#2d6a4f] flex items-center gap-2 text-sm font-semibold">
+                    <CheckCircle2 className="w-5 h-5 shrink-0" />
+                    <span>
+                      Thank you! Your message has been delivered to the Sarab Admin Dashboard.
+                    </span>
                   </div>
                 )}
-              </div>
+              </form>
             </div>
           </div>
-        )}
+        </div>
+      </section>
 
-        {/* FAQs Section */}
-        {websiteSections.showFaq && faqs.length > 0 && (
-          <div className="pt-8 border-t border-neutral-200 max-w-3xl mx-auto space-y-6">
-            <div className="text-center">
-              <span className="text-xs font-bold uppercase tracking-wider text-amber-800">
-                Got Questions?
-              </span>
-              <h3 className="text-2xl font-bold font-heading text-neutral-900 mt-1">
-                Frequently Asked Questions
-              </h3>
+      {/* ===================== SARAB FAQ SECTION (#faq) ===================== */}
+      {websiteSections.showFaq && faqs.length > 0 && (
+        <section id="faq" className="py-16 bg-[#fff8f0] border-t border-[#fef0dc]">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-10">
+              <span className="slbl">{faqContent.kicker || 'Got Questions?'}</span>
+              <h2 className="stitle">
+                {faqContent.title || (
+                  <>
+                    Frequently Asked <span>Questions</span>
+                  </>
+                )}
+              </h2>
+              <div className="sline" />
             </div>
 
             <div className="space-y-3">
-              {faqs.map((faq, idx) => {
-                const isOpen = openFaqIndex === idx;
+              {faqs.map((faq) => {
+                const isOpen = openFaqId === faq.id;
                 return (
                   <div
                     key={faq.id}
-                    className="border border-neutral-200 rounded-xl overflow-hidden transition-colors bg-neutral-50/50"
+                    className="bg-white rounded-2xl border border-neutral-200/70 overflow-hidden shadow-xs"
                   >
                     <button
-                      onClick={() => toggleFaq(idx)}
-                      className="w-full p-4 text-left flex items-center justify-between gap-4 font-semibold text-sm text-neutral-900 hover:text-amber-800"
+                      type="button"
+                      onClick={() => setOpenFaqId(isOpen ? null : faq.id)}
+                      className="w-full px-6 py-4 text-left flex items-center justify-between gap-4 cursor-pointer hover:bg-[#fff8f0]/50 transition-colors"
                     >
-                      <span>{faq.question}</span>
-                      {isOpen ? (
-                        <ChevronUp className="w-4 h-4 text-neutral-500 shrink-0" />
-                      ) : (
-                        <ChevronDown className="w-4 h-4 text-neutral-500 shrink-0" />
-                      )}
+                      <span className="font-heading font-bold text-base text-[#1a1a1a]">
+                        {faq.question}
+                      </span>
+                      <ChevronDown
+                        className={`w-4 h-4 text-[#e8281a] shrink-0 transition-transform ${
+                          isOpen ? 'rotate-180' : ''
+                        }`}
+                      />
                     </button>
                     {isOpen && (
-                      <div className="px-4 pb-4 text-xs sm:text-sm text-neutral-600 leading-relaxed border-t border-neutral-100 pt-3">
+                      <div className="px-6 pb-4 text-sm text-[#666666] leading-relaxed border-t border-neutral-100 pt-3">
                         {faq.answer}
                       </div>
                     )}
@@ -178,8 +318,8 @@ export const LocationFaqSection: React.FC<LocationFaqSectionProps> = ({ onOpenCa
               })}
             </div>
           </div>
-        )}
-      </div>
-    </section>
+        </section>
+      )}
+    </>
   );
 };

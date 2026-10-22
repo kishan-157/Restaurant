@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { RestaurantProvider, useRestaurant } from './context/RestaurantContext';
 import { CartProvider } from './context/CartContext';
 import { Navbar } from './components/layout/Navbar';
@@ -9,60 +9,106 @@ import { MenuSection } from './components/menu/MenuSection';
 import { AboutSection } from './components/home/AboutSection';
 import { GallerySection } from './components/home/GallerySection';
 import { ReviewsSection } from './components/home/ReviewsSection';
+import { ReservationAndBlogSection } from './components/home/ReservationAndBlogSection';
 import { LocationFaqSection } from './components/home/LocationFaqSection';
 import { Footer } from './components/layout/Footer';
 import { CartDrawer } from './components/cart/CartDrawer';
 import { CateringModal } from './components/home/CateringModal';
 import { AdminModal } from './components/admin/AdminModal';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
-import { Info, Database, Sparkles } from 'lucide-react';
 
 const MainLayout: React.FC = () => {
-  const { isConnected, data } = useRestaurant();
+  const { data } = useRestaurant();
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isCateringOpen, setIsCateringOpen] = useState(false);
 
+  // Sync dynamic theme colors to CSS variables
+  useEffect(() => {
+    const root = document.documentElement;
+    if (data.profile.primaryColor) {
+      root.style.setProperty('--primary', data.profile.primaryColor);
+    }
+    if (data.profile.secondaryColor) {
+      root.style.setProperty('--secondary', data.profile.secondaryColor);
+    }
+    if (data.profile.accentColor) {
+      root.style.setProperty('--green', data.profile.accentColor);
+    }
+    if (data.seo?.metaTitle) {
+      document.title = data.seo.metaTitle;
+    }
+  }, [
+    data.profile.primaryColor,
+    data.profile.secondaryColor,
+    data.profile.accentColor,
+    data.seo?.metaTitle,
+  ]);
+
+  // Sync #admin hash with Admin Dashboard state
+  useEffect(() => {
+    const checkHash = () => {
+      if (window.location.hash === '#admin') {
+        setIsAdminOpen(true);
+      }
+    };
+    checkHash();
+    window.addEventListener('hashchange', checkHash);
+    return () => window.removeEventListener('hashchange', checkHash);
+  }, []);
+
+  const handleOpenAdmin = () => {
+    setIsAdminOpen(true);
+    if (window.location.hash !== '#admin') {
+      window.location.hash = 'admin';
+    }
+  };
+
+  const handleCloseAdmin = () => {
+    setIsAdminOpen(false);
+    if (window.location.hash === '#admin') {
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+  };
+
   return (
-    <div className="min-h-screen flex flex-col bg-neutral-50 text-neutral-900 selection:bg-amber-600 selection:text-white">
-      {/* Demo Mode / Local Persistence Awareness Ribbon */}
-      {!isConnected && (
-        <aside aria-label="Demo mode notice" className="bg-amber-950 text-amber-200 text-xs py-2 px-4 border-b border-amber-900/60">
-          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
-            <div className="flex items-center gap-2">
-              <span className="inline-block w-2 h-2 rounded-full bg-amber-400" />
-              <span>
-                <strong>Master Template (Demo Mode):</strong> Edits persist in this browser. To enable production multi-device cloud persistence, connect your own Supabase project.
-              </span>
-            </div>
-            <button
-              onClick={() => setIsAdminOpen(true)}
-              className="text-white bg-amber-800 hover:bg-amber-700 font-semibold px-2.5 py-1 rounded-md text-[11px] whitespace-nowrap transition-colors"
-            >
-              Open Database Wizard
-            </button>
-          </div>
-        </aside>
-      )}
+    <div className="min-h-screen flex flex-col bg-white text-[#444444] selection:bg-[#e8281a] selection:text-white">
+      {/* Sarab Topbar + Sticky Navbar + Full-Screen Search Overlay */}
+      <Navbar onOpenAdmin={handleOpenAdmin} isAdminOpen={isAdminOpen} />
 
-      {/* Top Navbar */}
-      <Navbar onOpenAdmin={() => setIsAdminOpen(true)} isAdminOpen={isAdminOpen} />
-
-      {/* Homepage & Content Sections */}
+      {/* Sarab Public Website Sections in Exact Template Order */}
       <main className="flex-1">
+        {/* 1. Hero Section + Red Marquee Ticker */}
         {data.websiteSections.showHero && <HeroSection />}
+
+        {/* 2. Browse by Category (#category) */}
         {data.websiteSections.showOrderModes && <OrderModesBar />}
-        {data.websiteSections.showSpecialOffers && <OffersSection />}
-        <MenuSection />
+
+        {/* 3. About Section (#about) */}
         {data.websiteSections.showAbout && <AboutSection />}
-        {data.websiteSections.showGallery && <GallerySection />}
-        {data.websiteSections.showTestimonials && <ReviewsSection />}
+
+        {/* 4. Our Delicious Menu (#menu) + Dish Detail Popup (#menuPop) */}
+        <MenuSection />
+
+        {/* 5. Special Deal Banner with Live Countdown (#special) */}
+        {data.websiteSections.showSpecialOffers && <OffersSection />}
+
+        {/* 6. Food Showcase Gallery (#gallery) + History Timeline (#history) + Chefs (#chefs) */}
+        <GallerySection />
+
+        {/* 7. Opening Hours (#hours) + Customer Feedback (#testimonials) */}
+        <ReviewsSection />
+
+        {/* 8. Make a Reservation (#reservation) + Latest Blog (#blog) + Newsletter (#newsletter) */}
+        <ReservationAndBlogSection />
+
+        {/* 9. Contact Us (#contact-section) + FAQ (#faq) */}
         <LocationFaqSection onOpenCatering={() => setIsCateringOpen(true)} />
       </main>
 
-      {/* Footer */}
-      <Footer onOpenAdmin={() => setIsAdminOpen(true)} />
+      {/* 10. Sarab Dark Footer + Floating Cart + Back to Top */}
+      {data.websiteSections.showFooter && <Footer onOpenAdmin={handleOpenAdmin} />}
 
-      {/* Cart Drawer */}
+      {/* Cart Drawer (WhatsApp & Admin Panel Checkout) */}
       <CartDrawer />
 
       {/* Party / Catering Inquiries Modal */}
@@ -71,10 +117,10 @@ const MainLayout: React.FC = () => {
         onClose={() => setIsCateringOpen(false)}
       />
 
-      {/* Complete Owner Admin Panel */}
+      {/* Full-Screen Sarab-Themed Admin Dashboard */}
       <AdminModal
         isOpen={isAdminOpen}
-        onClose={() => setIsAdminOpen(false)}
+        onClose={handleCloseAdmin}
       />
     </div>
   );

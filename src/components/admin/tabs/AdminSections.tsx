@@ -1,135 +1,164 @@
 import React, { useState } from 'react';
-import { Layers, Check } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { useRestaurant } from '../../../context/RestaurantContext';
 import { WebsiteSections } from '../../../types';
 
-export const AdminSections: React.FC = () => {
+interface AdminSectionsProps {
+  showToast?: (msg: string) => void;
+}
+
+export const AdminSections: React.FC<AdminSectionsProps> = ({ showToast }) => {
   const { data, updateSections } = useRestaurant();
   const [sections, setSections] = useState<WebsiteSections>({ ...data.websiteSections });
   const [saved, setSaved] = useState(false);
 
   const toggleSection = (key: keyof WebsiteSections) => {
-    setSections((prev) => ({
+    setSections(prev => ({
       ...prev,
-      [key]: !prev[key],
+      [key]: !(prev[key] !== false),
     }));
   };
 
-  const handleSave = () => {
-    updateSections(sections);
+  const handleSave = async () => {
+    await updateSections(sections);
     setSaved(true);
+    if (showToast) showToast('Section visibility updated & synced!');
     setTimeout(() => setSaved(false), 2000);
   };
 
   const sectionDefinitions: { key: keyof WebsiteSections; title: string; desc: string }[] = [
     {
       key: 'showHero',
-      title: 'Hero Banner & Headline',
-      desc: 'Top visual header with restaurant tagline, CTAs, and quality trust indicators.',
+      title: 'Hero Banner & Marquee Ticker',
+      desc: 'Main Sarab split hero section with circular dish showcase, floating badges, stats bar, and scrolling marquee.',
     },
     {
       key: 'showOrderModes',
-      title: 'Fulfillment & External Platform Bar',
-      desc: 'Strip showing delivery times, free delivery perks, and Swiggy/Zomato buttons.',
-    },
-    {
-      key: 'showSpecialOffers',
-      title: 'Special Promo Offers & Coupons',
-      desc: 'Cards showing promotional codes (e.g. FIRSTBITE, FREESHIP) with copy button.',
-    },
-    {
-      key: 'showFeaturedMenu',
-      title: 'Digital Menu & Categories',
-      desc: 'Complete interactive catalog with category tabs, search, veg/non-veg filter, and customization.',
+      title: 'Circular Category Strip',
+      desc: 'Interactive circular food category strip right below the marquee ticker.',
     },
     {
       key: 'showAbout',
-      title: 'Culinary Heritage & Story',
-      desc: 'Narrative about charcoal slow-cooking, clay tandoors, and heirloom spices.',
+      title: 'About Us & Feature Highlights',
+      desc: 'Two-column story section with overlapping photos, 12+ years badge, and 4 feature cards.',
+    },
+    {
+      key: 'showFeaturedMenu',
+      title: 'Full Interactive Food Menu',
+      desc: 'Filterable menu grid with search, veg/non-veg filter, category pills, and instant cart drawer.',
+    },
+    {
+      key: 'showSpecialOffers',
+      title: 'Deal of the Day & Promo Coupons',
+      desc: 'Dark split Deal of the Day banner with live countdown timer + copyable promo coupon cards.',
+    },
+    {
+      key: 'showChefs',
+      title: 'Meet Our Expert Chefs',
+      desc: '3-column showcase of culinary masters with specialties and ratings.',
+    },
+    {
+      key: 'showHistory',
+      title: 'Our Journey & History Timeline',
+      desc: 'Horizontal/vertical milestone timeline showing how Sarab grew from 2012 to today.',
     },
     {
       key: 'showGallery',
-      title: 'Visual Photo Gallery',
-      desc: 'Grid showing royal dishes, dining room ambience, and live kitchen photos.',
+      title: 'Food & Ambience Photo Gallery',
+      desc: 'Masonry photo grid with hover captions.',
     },
     {
       key: 'showTestimonials',
-      title: 'Diner Testimonials & Ratings',
-      desc: 'Real quotes, ratings, and recommended dishes from happy patrons.',
+      title: 'Customer Reviews & Testimonials',
+      desc: 'Verified guest reviews with star ratings and ordered dish badges.',
     },
     {
-      key: 'showGoogleReviews',
-      title: 'Google Maps Reviews Button',
-      desc: 'Direct link allowing diners to inspect verified Google Local reviews.',
+      key: 'showReservation',
+      title: 'Book A Table Reservation Form',
+      desc: 'Interactive table booking form that sends live reservations straight to the Admin Panel.',
+    },
+    {
+      key: 'showBlog',
+      title: 'Latest Food Stories & Blog',
+      desc: 'Editorial articles, recipes, and kitchen stories.',
+    },
+    {
+      key: 'showNewsletter',
+      title: 'VIP Club & Newsletter Banner',
+      desc: 'Email subscription strip for exclusive weekly deals.',
     },
     {
       key: 'showLocationHours',
-      title: 'Weekly Opening Hours & Address',
-      desc: 'Interactive schedule table for every day of the week, plus map directions.',
+      title: 'Location, Opening Hours & Contact Form',
+      desc: 'Address details, weekly hours schedule, and direct customer message form.',
     },
     {
       key: 'showCateringInquiry',
-      title: 'Party & Catering Inquiries',
-      desc: 'Lead capture form allowing event organizers to request banquet pricing.',
+      title: 'Party & Event Catering Form',
+      desc: 'Allow guests to request custom event and banquet catering quotes.',
     },
     {
       key: 'showFaq',
       title: 'Frequently Asked Questions (FAQ)',
-      desc: 'Accordion resolving delivery zones, pure veg sanctum, and Halal meat questions.',
+      desc: 'Expandable Q&A accordion for delivery times, halal status, and allergies.',
     },
     {
       key: 'showFooter',
-      title: 'Footer & Legal Policies',
-      desc: 'Bottom bar containing copyright, contact links, Privacy Policy, and Terms.',
+      title: 'Website Footer',
+      desc: '4-column Sarab footer with quick links, hours, and legal policies.',
     },
   ];
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between pb-4 border-b border-neutral-200">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-[#e0d6c8] rounded-3xl p-6">
         <div>
-          <h2 className="text-xl font-bold font-heading text-neutral-900">Website Sections Manager</h2>
-          <p className="text-xs text-neutral-500 mt-0.5">
-            Turn specific public sections ON or OFF to match your restaurant's current offerings.
+          <h2
+            className="text-xl font-bold text-[#1a1a1a]"
+            style={{ fontFamily: "'Playfair Display', serif" }}
+          >
+            Website Section Visibility
+          </h2>
+          <p className="text-xs text-[#7a6e65] mt-1">
+            Show or hide any section on the public Sarab website instantly. Changes sync with Supabase.
           </p>
         </div>
 
         <button
           onClick={handleSave}
-          className="px-5 py-2.5 text-xs font-semibold text-white bg-neutral-900 hover:bg-neutral-800 rounded-xl transition-colors shadow-xs flex items-center gap-1.5"
+          className="px-6 py-2.5 text-xs font-semibold text-white bg-[#e8281a] hover:bg-[#c01f12] rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
         >
-          {saved && <Check className="w-4 h-4 text-emerald-400" />}
-          <span>{saved ? 'Settings Saved!' : 'Save Sections'}</span>
+          {saved && <Check className="w-4 h-4 text-white" />}
+          <span>{saved ? 'Saved & Synced!' : 'Save Section Visibility'}</span>
         </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {sectionDefinitions.map((sec) => {
-          const isEnabled = sections[sec.key];
+        {sectionDefinitions.map(sec => {
+          const isEnabled = sections[sec.key] !== false;
           return (
             <div
               key={sec.key}
               onClick={() => toggleSection(sec.key)}
-              className={`p-4 rounded-xl border cursor-pointer transition-all flex items-start justify-between gap-4 select-none ${
+              className={`p-5 rounded-3xl border cursor-pointer transition-all flex items-start justify-between gap-4 select-none ${
                 isEnabled
-                  ? 'border-amber-600/60 bg-amber-50/30'
-                  : 'border-neutral-200 bg-white hover:border-neutral-300 opacity-60'
+                  ? 'border-[#e8281a]/40 bg-white shadow-xs'
+                  : 'border-[#e0d6c8] bg-[#fff8f0]/60 opacity-60'
               }`}
             >
               <div>
-                <h4 className="text-sm font-bold text-neutral-900">{sec.title}</h4>
-                <p className="text-xs text-neutral-500 mt-1 leading-snug">{sec.desc}</p>
+                <h4 className="text-sm font-bold text-[#1a1a1a]">{sec.title}</h4>
+                <p className="text-xs text-[#7a6e65] mt-1 leading-relaxed">{sec.desc}</p>
               </div>
 
-              {/* Toggle switch */}
               <div
-                className={`w-11 h-6 rounded-full p-1 transition-colors shrink-0 ${
-                  isEnabled ? 'bg-amber-600' : 'bg-neutral-300'
+                className={`w-12 h-6 rounded-full p-1 transition-colors shrink-0 ${
+                  isEnabled ? 'bg-[#e8281a]' : 'bg-neutral-300'
                 }`}
               >
                 <div
                   className={`w-4 h-4 rounded-full bg-white transition-transform ${
-                    isEnabled ? 'translate-x-5' : 'translate-x-0'
+                    isEnabled ? 'translate-x-6' : 'translate-x-0'
                   }`}
                 />
               </div>

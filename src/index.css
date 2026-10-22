@@ -2,8 +2,18 @@
 
 @layer base {
   :root {
+    --primary: #e8281a;
+    --secondary: #f6a623;
+    --dark: #1a1a1a;
+    --green: #2d6a4f;
+    --cream: #fff8f0;
+    --cream2: #fef0dc;
+    --light: #f9f5f0;
+    --shadow: 0 8px 40px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.18);
     --font-heading: 'Playfair Display', Georgia, serif;
-    --font-body: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    --font-body: 'Poppins', system-ui, -apple-system, sans-serif;
+    --font-script: 'Dancing Script', cursive;
   }
 
   html {
@@ -11,15 +21,223 @@
     font-family: var(--font-body);
   }
 
-  h1, h2, h3, .font-heading {
+  h1, h2, h3, h4, h5, .font-heading {
     font-family: var(--font-heading);
   }
 }
 
-/* Custom scrollbar for menu filters and drawers */
+.font-script {
+  font-family: 'Dancing Script', cursive;
+}
+
+.font-poppins {
+  font-family: 'Poppins', sans-serif;
+}
+
+/* Sarab Theme Signature Styles */
+.slbl {
+  font-family: 'Dancing Script', cursive;
+  font-size: 1.4rem;
+  color: var(--primary);
+  display: block;
+  margin-bottom: 4px;
+}
+
+.stitle {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(1.95rem, 4vw, 2.75rem);
+  font-weight: 900;
+  line-height: 1.2;
+  color: var(--dark);
+  margin-bottom: 12px;
+}
+
+.stitle span {
+  color: var(--primary);
+}
+
+.sline {
+  width: 58px;
+  height: 4px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--primary), var(--secondary));
+  margin: 0 auto 14px;
+}
+
+.sline.lft {
+  margin-left: 0;
+}
+
+.btn-red {
+  background: linear-gradient(135deg, var(--primary), #c01e12);
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  padding: 14px 32px;
+  font-weight: 600;
+  font-size: 0.93rem;
+  box-shadow: 0 8px 24px rgba(232, 40, 26, 0.35);
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+  font-family: 'Poppins', sans-serif;
+}
+
+.btn-red:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 34px rgba(232, 40, 26, 0.45);
+  color: #fff;
+}
+
+@keyframes fsh {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-24px);
+  }
+}
+
+@keyframes fltc {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-9px);
+  }
+}
+
+@keyframes fltimg {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-16px);
+  }
+}
+
+@keyframes plsbdg {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.06);
+    box-shadow: 0 12px 34px rgba(232, 40, 26, 0.7);
+  }
+}
+
+@keyframes mqrun {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-float-slow {
+  animation: fsh 8s ease-in-out infinite;
+}
+
+.animate-float-badge-1 {
+  animation: fltc 4s ease-in-out infinite;
+}
+
+.animate-float-badge-2 {
+  animation: fltc 4s ease-in-out infinite 1.5s;
+}
+
+.animate-float-badge-3 {
+  animation: fltc 4s ease-in-out infinite 0.8s;
+}
+
+.animate-float-img {
+  animation: fltimg 5s ease-in-out infinite;
+}
+
+.animate-pulse-badge {
+  animation: plsbdg 2.5s ease-in-out infinite;
+}
+
+.mqtrack {
+  display: flex;
+  width: max-content;
+  gap: 38px;
+  white-space: nowrap;
+  animation: mqrun 24s linear infinite;
+}
+
+.mqtrack:hover {
+  animation-play-state: paused;
+}
+
+/* Soft Neumorphism Design System for Admin Panel */
+.neu-bg {
+  background-color: #EBEEF3;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+
+.neu-surface {
+  background-color: #F2F4F8;
+  box-shadow: 8px 8px 18px rgba(166, 180, 200, 0.48), -8px -8px 18px rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.78);
+}
+
+.neu-card {
+  background-color: #F2F4F8;
+  box-shadow: 6px 6px 14px rgba(166, 180, 200, 0.45), -6px -6px 14px rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: 1.25rem;
+}
+
+.neu-card-sm {
+  background-color: #F2F4F8;
+  box-shadow: 4px 4px 10px rgba(166, 180, 200, 0.4), -4px -4px 10px rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: 0.875rem;
+}
+
+.neu-inset {
+  background-color: #E8ECF2;
+  box-shadow: inset 3px 3px 7px rgba(163, 177, 198, 0.5), inset -3px -3px 7px rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.neu-icon-well {
+  background-color: #E8ECF2;
+  box-shadow: inset 2px 2px 5px rgba(163, 177, 198, 0.55), inset -2px -2px 5px rgba(255, 255, 255, 0.9);
+}
+
+.neu-btn {
+  background-color: #F2F4F8;
+  box-shadow: 4px 4px 9px rgba(166, 180, 200, 0.45), -4px -4px 9px rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  transition: all 0.18s ease;
+}
+
+.neu-btn:hover {
+  background-color: #F6F8FB;
+  box-shadow: 5px 5px 12px rgba(166, 180, 200, 0.55), -5px -5px 12px rgba(255, 255, 255, 0.95);
+}
+
+.neu-btn:active,
+.neu-btn-active {
+  background-color: #E8ECF2;
+  box-shadow: inset 3px 3px 6px rgba(163, 177, 198, 0.5), inset -3px -3px 6px rgba(255, 255, 255, 0.85);
+}
+
+.neu-nav-active {
+  background-color: #F5F7FA;
+  box-shadow: 4px 4px 10px rgba(166, 180, 200, 0.45), -4px -4px 10px rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+}
+
+/* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -27,10 +245,6 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(156, 163, 175, 0.4);
-  border-radius: 9999px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(156, 163, 175, 0.7);
+  background: #e8281a;
+  border-radius: 10px;
 }

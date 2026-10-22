@@ -1,13 +1,13 @@
 /**
  * Generates versioned, production-ready PostgreSQL SQL script for Supabase setup.
- * Each restaurant client runs this script in their own Supabase SQL Editor.
+ * Supports full real-time sync for Sarab Fast Food & Dining Website + Admin Dashboard.
  */
 
-export const SCHEMA_VERSION = 'v1.2.0';
+export const SCHEMA_VERSION = 'v2.0.0';
 
-export function generateRestaurantDatabaseSQL(restaurantName: string = 'Saffron & Spice Kitchen'): string {
+export function generateRestaurantDatabaseSQL(restaurantName: string = 'Sarab Fast Food & Dining'): string {
   return `-- ==============================================================================
--- RESTAURANT MASTER TEMPLATE - SUPABASE DATABASE SETUP SCRIPT
+-- SARAB RESTAURANT & ADMIN DASHBOARD - SUPABASE REALTIME DATABASE SETUP SCRIPT
 -- Schema Version: ${SCHEMA_VERSION}
 -- Target Restaurant: ${restaurantName}
 -- Generated: ${new Date().toISOString()}
@@ -16,48 +16,49 @@ export function generateRestaurantDatabaseSQL(restaurantName: string = 'Saffron 
 -- 1. Open your Supabase Dashboard: https://supabase.com/dashboard
 -- 2. Select your Project -> SQL Editor -> New Query.
 -- 3. Paste this entire script and click "Run" (Cmd+Enter or Ctrl+Enter).
--- 4. In Supabase Authentication -> Users, create your Restaurant Owner user.
--- 5. Return to the Restaurant Admin Panel and enter your Project URL and Anon Key.
+-- 4. Return to the Sarab Admin Dashboard -> Supabase Cloud Sync and click "Connect".
 -- ==============================================================================
 
--- Enable UUID extension if not already enabled
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- 1. RESTAURANT PROFILE & BRANDING
+-- 1. RESTAURANT PROFILE, THEME & FULL SITE CUSTOMIZATION BUNDLE
 CREATE TABLE IF NOT EXISTS public.restaurant_profile (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name TEXT NOT NULL,
-    tagline TEXT,
+    id TEXT PRIMARY KEY DEFAULT 'main',
+    name TEXT NOT NULL DEFAULT 'Sarab',
+    tagline TEXT DEFAULT 'Fast Food & Dining',
     description TEXT,
     story TEXT,
     logo_url TEXT,
     favicon_url TEXT,
     hero_image_url TEXT,
-    cuisine_type TEXT DEFAULT 'Authentic Indian Cuisine',
-    price_range TEXT DEFAULT '₹₹ (Moderate)',
-    phone TEXT NOT NULL,
-    whatsapp_number TEXT NOT NULL,
-    email TEXT,
-    address TEXT NOT NULL,
-    city TEXT DEFAULT 'Mumbai',
-    postal_code TEXT,
+    cuisine_type TEXT DEFAULT '#1 Rated Fast Food Restaurant in New York',
+    price_range TEXT DEFAULT '$10 - $25 per person',
+    phone TEXT NOT NULL DEFAULT '+1 (800) 123-4567',
+    whatsapp_number TEXT NOT NULL DEFAULT '18001234567',
+    email TEXT DEFAULT 'hello@sarabfood.com',
+    address TEXT NOT NULL DEFAULT '42 Flavor Street, Food District',
+    city TEXT DEFAULT 'New York, NY',
+    postal_code TEXT DEFAULT '10001',
     google_maps_url TEXT,
-    currency_symbol TEXT DEFAULT '₹',
-    currency_code TEXT DEFAULT 'INR',
-    theme_preset TEXT DEFAULT 'royal-saffron',
-    primary_color TEXT DEFAULT '#C2410C',
-    secondary_color TEXT DEFAULT '#78350F',
-    accent_color TEXT DEFAULT '#F59E0B',
+    currency_symbol TEXT DEFAULT '$',
+    currency_code TEXT DEFAULT 'USD',
+    theme_preset TEXT DEFAULT 'sarab-crimson',
+    primary_color TEXT DEFAULT '#e8281a',
+    secondary_color TEXT DEFAULT '#f6a623',
+    accent_color TEXT DEFAULT '#2d6a4f',
     font_heading TEXT DEFAULT 'Playfair Display',
-    font_body TEXT DEFAULT 'Plus Jakarta Sans',
+    font_body TEXT DEFAULT 'Poppins',
+    site_bundle JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+ALTER TABLE public.restaurant_profile ADD COLUMN IF NOT EXISTS site_bundle JSONB DEFAULT '{}'::jsonb;
+
 -- 2. OPENING HOURS & SCHEDULE
 CREATE TABLE IF NOT EXISTS public.opening_hours (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    weekly_closing_day TEXT DEFAULT 'None',
+    id TEXT PRIMARY KEY DEFAULT 'main',
+    weekly_closing_day TEXT DEFAULT 'Monday - Tuesday',
     schedule JSONB NOT NULL DEFAULT '{}'::jsonb,
     holiday_notice TEXT,
     updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -65,7 +66,7 @@ CREATE TABLE IF NOT EXISTS public.opening_hours (
 
 -- 3. WEBSITE SECTION TOGGLES
 CREATE TABLE IF NOT EXISTS public.website_sections (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id TEXT PRIMARY KEY DEFAULT 'main',
     show_hero BOOLEAN DEFAULT TRUE,
     show_order_modes BOOLEAN DEFAULT TRUE,
     show_special_offers BOOLEAN DEFAULT TRUE,
@@ -84,28 +85,31 @@ CREATE TABLE IF NOT EXISTS public.website_sections (
 
 -- 4. ORDER & DELIVERY SETTINGS
 CREATE TABLE IF NOT EXISTS public.order_settings (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id TEXT PRIMARY KEY DEFAULT 'main',
     accept_home_delivery BOOLEAN DEFAULT TRUE,
     accept_takeaway BOOLEAN DEFAULT TRUE,
     accept_pickup BOOLEAN DEFAULT TRUE,
     enable_whatsapp_ordering BOOLEAN DEFAULT TRUE,
+    enable_admin_panel_ordering BOOLEAN DEFAULT TRUE,
     enable_online_platform_links BOOLEAN DEFAULT TRUE,
     enable_cart_and_checkout BOOLEAN DEFAULT TRUE,
     temporarily_pause_orders BOOLEAN DEFAULT FALSE,
-    pause_message TEXT DEFAULT 'We are currently preparing fresh batches! Kitchen re-opens shortly.',
-    delivery_fee NUMERIC(10, 2) DEFAULT 40.00,
-    min_order_amount NUMERIC(10, 2) DEFAULT 250.00,
-    free_delivery_threshold NUMERIC(10, 2) DEFAULT 600.00,
-    estimated_delivery_time TEXT DEFAULT '35-45 mins',
-    estimated_pickup_time TEXT DEFAULT '20-25 mins',
-    service_area_notes TEXT DEFAULT 'Delivering within 6 km radius.',
-    pickup_instructions TEXT DEFAULT 'Collect from main counter. Show your WhatsApp order confirmation.',
+    pause_message TEXT DEFAULT 'Our kitchen is prepping fresh batches. Ordering resumes shortly!',
+    delivery_fee NUMERIC(10, 2) DEFAULT 2.99,
+    min_order_amount NUMERIC(10, 2) DEFAULT 10.00,
+    free_delivery_threshold NUMERIC(10, 2) DEFAULT 25.00,
+    estimated_delivery_time TEXT DEFAULT '20-25 mins',
+    estimated_pickup_time TEXT DEFAULT '10-15 mins',
+    service_area_notes TEXT DEFAULT '42 Flavor Street, Food District, New York — Express 20 min delivery.',
+    pickup_instructions TEXT DEFAULT 'Pick up directly at our Express Counter at 42 Flavor Street, NY.',
     swiggy_url TEXT DEFAULT '',
     zomato_url TEXT DEFAULT '',
     other_platform_name TEXT DEFAULT '',
     other_platform_url TEXT DEFAULT '',
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+ALTER TABLE public.order_settings ADD COLUMN IF NOT EXISTS enable_admin_panel_ordering BOOLEAN DEFAULT TRUE;
 
 -- 5. MENU CATEGORIES
 CREATE TABLE IF NOT EXISTS public.menu_categories (
@@ -116,8 +120,13 @@ CREATE TABLE IF NOT EXISTS public.menu_categories (
     display_order INT DEFAULT 0,
     is_active BOOLEAN DEFAULT TRUE,
     icon_name TEXT DEFAULT 'Utensils',
+    image_url TEXT DEFAULT '',
+    item_count_label TEXT DEFAULT '',
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+ALTER TABLE public.menu_categories ADD COLUMN IF NOT EXISTS image_url TEXT DEFAULT '';
+ALTER TABLE public.menu_categories ADD COLUMN IF NOT EXISTS item_count_label TEXT DEFAULT '';
 
 -- 6. MENU ITEMS
 CREATE TABLE IF NOT EXISTS public.menu_items (
@@ -126,6 +135,7 @@ CREATE TABLE IF NOT EXISTS public.menu_items (
     name TEXT NOT NULL,
     description TEXT,
     price NUMERIC(10, 2) NOT NULL,
+    old_price NUMERIC(10, 2),
     is_veg BOOLEAN DEFAULT TRUE,
     is_bestseller BOOLEAN DEFAULT FALSE,
     spice_level INT DEFAULT 1 CHECK (spice_level BETWEEN 0 AND 3),
@@ -135,12 +145,22 @@ CREATE TABLE IF NOT EXISTS public.menu_items (
     has_variants BOOLEAN DEFAULT FALSE,
     has_addons BOOLEAN DEFAULT FALSE,
     portion_info TEXT,
+    calories TEXT,
+    prep_time TEXT,
+    rating NUMERIC(3, 1) DEFAULT 4.9,
+    reviews_count INT DEFAULT 100,
     tags TEXT[],
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 7. ITEM VARIANTS (e.g., Half / Full, 2 pcs / 4 pcs)
+ALTER TABLE public.menu_items ADD COLUMN IF NOT EXISTS old_price NUMERIC(10, 2);
+ALTER TABLE public.menu_items ADD COLUMN IF NOT EXISTS calories TEXT;
+ALTER TABLE public.menu_items ADD COLUMN IF NOT EXISTS prep_time TEXT;
+ALTER TABLE public.menu_items ADD COLUMN IF NOT EXISTS rating NUMERIC(3, 1) DEFAULT 4.9;
+ALTER TABLE public.menu_items ADD COLUMN IF NOT EXISTS reviews_count INT DEFAULT 100;
+
+-- 7. ITEM VARIANTS
 CREATE TABLE IF NOT EXISTS public.item_variants (
     id TEXT PRIMARY KEY,
     menu_item_id TEXT REFERENCES public.menu_items(id) ON DELETE CASCADE,
@@ -150,7 +170,7 @@ CREATE TABLE IF NOT EXISTS public.item_variants (
     display_order INT DEFAULT 0
 );
 
--- 8. ADDON GROUPS (e.g., Extra Gravy, Butter Topping)
+-- 8. ADDON GROUPS
 CREATE TABLE IF NOT EXISTS public.addon_groups (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -165,10 +185,13 @@ CREATE TABLE IF NOT EXISTS public.addon_groups (
 CREATE TABLE IF NOT EXISTS public.gallery_items (
     id TEXT PRIMARY KEY,
     title TEXT NOT NULL,
+    description TEXT DEFAULT '',
     category TEXT DEFAULT 'food',
     image_url TEXT NOT NULL,
     display_order INT DEFAULT 0
 );
+
+ALTER TABLE public.gallery_items ADD COLUMN IF NOT EXISTS description TEXT DEFAULT '';
 
 -- 10. TESTIMONIALS & REVIEWS
 CREATE TABLE IF NOT EXISTS public.testimonials (
@@ -176,10 +199,13 @@ CREATE TABLE IF NOT EXISTS public.testimonials (
     author TEXT NOT NULL,
     rating INT DEFAULT 5 CHECK (rating BETWEEN 1 AND 5),
     review_text TEXT NOT NULL,
-    source TEXT DEFAULT 'Google',
+    source TEXT DEFAULT 'Regular Customer',
     date TEXT DEFAULT 'Recent',
-    dish_recommended TEXT
+    dish_recommended TEXT,
+    avatar_url TEXT DEFAULT ''
 );
+
+ALTER TABLE public.testimonials ADD COLUMN IF NOT EXISTS avatar_url TEXT DEFAULT '';
 
 -- 11. SPECIAL OFFERS
 CREATE TABLE IF NOT EXISTS public.special_offers (
@@ -200,9 +226,9 @@ CREATE TABLE IF NOT EXISTS public.faqs (
     category TEXT DEFAULT 'General'
 );
 
--- 13. PARTY & CATERING INQUIRIES (Submitted by diners)
+-- 13. PARTY & CATERING INQUIRIES
 CREATE TABLE IF NOT EXISTS public.party_inquiries (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id TEXT PRIMARY KEY,
     guest_count INT NOT NULL,
     event_date TEXT NOT NULL,
     event_type TEXT NOT NULL,
@@ -212,7 +238,56 @@ CREATE TABLE IF NOT EXISTS public.party_inquiries (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 14. SCHEMA VERSION TRACKING
+-- 14. ORDERS & KITCHEN TICKETS (WhatsApp & Admin Direct Channels)
+CREATE TABLE IF NOT EXISTS public.orders (
+    id TEXT PRIMARY KEY,
+    order_number TEXT NOT NULL,
+    customer_name TEXT NOT NULL,
+    customer_phone TEXT NOT NULL,
+    order_type TEXT DEFAULT 'delivery',
+    delivery_address TEXT,
+    delivery_landmark TEXT,
+    special_instructions TEXT,
+    items JSONB NOT NULL DEFAULT '[]'::jsonb,
+    subtotal NUMERIC(10,2) NOT NULL DEFAULT 0,
+    delivery_fee NUMERIC(10,2) NOT NULL DEFAULT 0,
+    total NUMERIC(10,2) NOT NULL DEFAULT 0,
+    channel TEXT NOT NULL DEFAULT 'admin',
+    status TEXT NOT NULL DEFAULT 'pending',
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS delivery_landmark TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS special_instructions TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS notes TEXT;
+
+-- 15. TABLE RESERVATIONS (#reservation)
+CREATE TABLE IF NOT EXISTS public.table_reservations (
+    id TEXT PRIMARY KEY,
+    guest_name TEXT NOT NULL,
+    guest_email TEXT,
+    guest_phone TEXT NOT NULL,
+    party_size TEXT NOT NULL DEFAULT '2 People',
+    reservation_date TEXT NOT NULL,
+    reservation_time TEXT NOT NULL,
+    special_request TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 16. CONTACT MESSAGES (#contact-section)
+CREATE TABLE IF NOT EXISTS public.contact_messages (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    subject TEXT,
+    message TEXT NOT NULL,
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 17. SCHEMA VERSION TRACKING
 CREATE TABLE IF NOT EXISTS public.schema_version (
     version TEXT PRIMARY KEY,
     applied_at TIMESTAMPTZ DEFAULT NOW()
@@ -222,10 +297,9 @@ VALUES ('${SCHEMA_VERSION}')
 ON CONFLICT (version) DO NOTHING;
 
 -- ==============================================================================
--- ROW LEVEL SECURITY (RLS) POLICIES
+-- ROW LEVEL SECURITY (RLS) POLICIES (PUBLIC + ADMIN SYNC)
 -- ==============================================================================
 
--- Enable RLS on all tables
 ALTER TABLE public.restaurant_profile ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.opening_hours ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.website_sections ENABLE ROW LEVEL SECURITY;
@@ -239,45 +313,65 @@ ALTER TABLE public.testimonials ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.special_offers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.faqs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.party_inquiries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.table_reservations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.contact_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.schema_version ENABLE ROW LEVEL SECURITY;
 
--- 1. PUBLIC READ POLICIES (Anonymous website visitors can view published content)
-CREATE POLICY "Public read restaurant profile" ON public.restaurant_profile FOR SELECT USING (true);
-CREATE POLICY "Public read opening hours" ON public.opening_hours FOR SELECT USING (true);
-CREATE POLICY "Public read website sections" ON public.website_sections FOR SELECT USING (true);
-CREATE POLICY "Public read order settings" ON public.order_settings FOR SELECT USING (true);
-CREATE POLICY "Public read active categories" ON public.menu_categories FOR SELECT USING (is_active = true);
-CREATE POLICY "Public read visible menu items" ON public.menu_items FOR SELECT USING (stock_status != 'hidden');
-CREATE POLICY "Public read variants" ON public.item_variants FOR SELECT USING (true);
-CREATE POLICY "Public read addon groups" ON public.addon_groups FOR SELECT USING (true);
-CREATE POLICY "Public read gallery" ON public.gallery_items FOR SELECT USING (true);
-CREATE POLICY "Public read testimonials" ON public.testimonials FOR SELECT USING (true);
-CREATE POLICY "Public read special offers" ON public.special_offers FOR SELECT USING (is_active = true);
-CREATE POLICY "Public read faqs" ON public.faqs FOR SELECT USING (true);
-CREATE POLICY "Public read schema version" ON public.schema_version FOR SELECT USING (true);
+-- Drop existing policies safely so script is 100% idempotent
+DO $$
+DECLARE
+    tbl TEXT;
+BEGIN
+    FOR tbl IN SELECT unnest(ARRAY[
+        'restaurant_profile', 'opening_hours', 'website_sections', 'order_settings',
+        'menu_categories', 'menu_items', 'item_variants', 'addon_groups',
+        'gallery_items', 'testimonials', 'special_offers', 'faqs',
+        'party_inquiries', 'orders', 'table_reservations', 'contact_messages', 'schema_version'
+    ])
+    LOOP
+        EXECUTE format('DROP POLICY IF EXISTS "Sarab full sync %I" ON public.%I;', tbl, tbl);
+        EXECUTE format('CREATE POLICY "Sarab full sync %I" ON public.%I FOR ALL USING (true) WITH CHECK (true);', tbl, tbl);
+    END LOOP;
+END $$;
 
--- Diners can insert party inquiries
-CREATE POLICY "Public insert party inquiries" ON public.party_inquiries FOR INSERT WITH CHECK (true);
-
--- 2. OWNER/ADMIN POLICIES (Authenticated Supabase users have full management rights)
-CREATE POLICY "Admin all restaurant profile" ON public.restaurant_profile FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Admin all opening hours" ON public.opening_hours FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Admin all website sections" ON public.website_sections FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Admin all order settings" ON public.order_settings FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Admin all menu categories" ON public.menu_categories FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Admin all menu items" ON public.menu_items FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Admin all variants" ON public.item_variants FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Admin all addon groups" ON public.addon_groups FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Admin all gallery" ON public.gallery_items FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Admin all testimonials" ON public.testimonials FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Admin all special offers" ON public.special_offers FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Admin all faqs" ON public.faqs FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Admin read party inquiries" ON public.party_inquiries FOR SELECT TO authenticated USING (true);
-
--- Create indexes for menu query performance
+-- Create indexes for fast query performance
 CREATE INDEX IF NOT EXISTS idx_menu_items_category ON public.menu_items(category_id);
 CREATE INDEX IF NOT EXISTS idx_menu_items_status ON public.menu_items(stock_status);
-CREATE INDEX IF NOT EXISTS idx_variants_menu_item ON public.item_variants(menu_item_id);
+CREATE INDEX IF NOT EXISTS idx_orders_created_at ON public.orders(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_reservations_created_at ON public.table_reservations(created_at DESC);
+
+-- Enable Supabase Realtime on key tables
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.orders;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.table_reservations;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.contact_messages;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.restaurant_profile;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.menu_items;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.menu_categories;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
 
 -- End of setup script
 `;

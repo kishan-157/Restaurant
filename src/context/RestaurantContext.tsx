@@ -15,6 +15,17 @@ import {
   FAQItem,
   StockStatus,
   SupabaseConfig,
+  SectionContents,
+  Order,
+  OrderStatus,
+  ChefProfile,
+  TimelineEvent,
+  BlogPostItem,
+  TableReservation,
+  ReservationStatus,
+  ContactMessage,
+  SocialLinks,
+  SEOSettings,
 } from '../types';
 import { dataProvider, VerificationResult } from '../lib/dataProvider';
 
@@ -22,10 +33,25 @@ interface RestaurantContextType {
   data: RestaurantDatabaseBundle;
   isConnected: boolean;
   supabaseConfig: SupabaseConfig;
+  orders: Order[];
+  reservations: TableReservation[];
+  contactMessages: ContactMessage[];
+  addOrder: (order: Parameters<typeof dataProvider.addOrder>[0]) => Order;
+  updateOrderStatus: (orderId: string, status: OrderStatus) => void;
+  deleteOrder: (orderId: string) => void;
+  clearOrders: () => void;
+  addReservation: (res: Omit<TableReservation, 'id' | 'createdAt' | 'status'>) => TableReservation;
+  updateReservationStatus: (id: string, status: ReservationStatus) => void;
+  deleteReservation: (id: string) => void;
+  addContactMessage: (msg: Omit<ContactMessage, 'id' | 'createdAt' | 'isRead'>) => ContactMessage;
+  deleteContactMessage: (id: string) => void;
   updateProfile: (profile: Partial<RestaurantProfile>) => void;
   updateSections: (sections: Partial<WebsiteSections>) => void;
+  updateSectionContents: (contents: Partial<SectionContents>) => void;
   updateOrderSettings: (settings: Partial<OrderSettings>) => void;
   updateOpeningHours: (hours: Partial<OpeningHours>) => void;
+  updateSocials: (socials: Partial<SocialLinks>) => void;
+  updateSEO: (seo: Partial<SEOSettings>) => void;
   saveCategory: (category: MenuCategory) => void;
   deleteCategory: (categoryId: string) => void;
   saveItem: (item: MenuItem) => void;
@@ -43,9 +69,16 @@ interface RestaurantContextType {
   deleteOffer: (id: string) => void;
   saveFAQ: (faq: FAQItem) => void;
   deleteFAQ: (id: string) => void;
+  saveChef: (chef: ChefProfile) => void;
+  deleteChef: (id: string) => void;
+  saveTimelineEvent: (event: TimelineEvent) => void;
+  deleteTimelineEvent: (id: string) => void;
+  saveBlogPost: (post: BlogPostItem) => void;
+  deleteBlogPost: (id: string) => void;
   connectSupabase: (url: string, key: string) => Promise<VerificationResult>;
   disconnectSupabase: () => void;
   syncFromSupabase: () => Promise<boolean>;
+  pushAllToSupabase: () => Promise<boolean>;
   exportData: () => string;
   importData: (json: string) => { success: boolean; error?: string };
   resetDefaults: () => void;
@@ -58,19 +91,26 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [data, setData] = useState<RestaurantDatabaseBundle>(() => dataProvider.getData());
   const [supabaseConfig, setSupabaseConfig] = useState<SupabaseConfig>(() => dataProvider.getSupabaseConfig());
 
-  // Keep state refreshed whenever dataProvider updates
   const refreshState = () => {
     setData({ ...dataProvider.getData() });
     setSupabaseConfig(dataProvider.getSupabaseConfig());
   };
 
   useEffect(() => {
-    // If Supabase is connected, do an initial background sync
+    // Subscribe to real-time changes from Supabase or cross-tab localStorage updates
+    const unsubscribe = dataProvider.subscribe(() => {
+      refreshState();
+    });
+
     if (dataProvider.isConnectedToSupabase()) {
       dataProvider.syncFromSupabase().then(() => {
         refreshState();
       });
     }
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   const updateProfile = (profile: Partial<RestaurantProfile>) => {
@@ -83,6 +123,11 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     refreshState();
   };
 
+  const updateSectionContents = (contents: Partial<SectionContents>) => {
+    dataProvider.updateSectionContents(contents);
+    refreshState();
+  };
+
   const updateOrderSettings = (settings: Partial<OrderSettings>) => {
     dataProvider.updateOrderSettings(settings);
     refreshState();
@@ -90,6 +135,16 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const updateOpeningHours = (hours: Partial<OpeningHours>) => {
     dataProvider.updateOpeningHours(hours);
+    refreshState();
+  };
+
+  const updateSocials = (socials: Partial<SocialLinks>) => {
+    dataProvider.updateSocials(socials);
+    refreshState();
+  };
+
+  const updateSEO = (seo: Partial<SEOSettings>) => {
+    dataProvider.updateSEO(seo);
     refreshState();
   };
 
@@ -178,6 +233,36 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     refreshState();
   };
 
+  const saveChef = (chef: ChefProfile) => {
+    dataProvider.saveChef(chef);
+    refreshState();
+  };
+
+  const deleteChef = (id: string) => {
+    dataProvider.deleteChef(id);
+    refreshState();
+  };
+
+  const saveTimelineEvent = (event: TimelineEvent) => {
+    dataProvider.saveTimelineEvent(event);
+    refreshState();
+  };
+
+  const deleteTimelineEvent = (id: string) => {
+    dataProvider.deleteTimelineEvent(id);
+    refreshState();
+  };
+
+  const saveBlogPost = (post: BlogPostItem) => {
+    dataProvider.saveBlogPost(post);
+    refreshState();
+  };
+
+  const deleteBlogPost = (id: string) => {
+    dataProvider.deleteBlogPost(id);
+    refreshState();
+  };
+
   const connectSupabase = async (url: string, key: string): Promise<VerificationResult> => {
     const res = await dataProvider.testAndConnectSupabase(url, key);
     refreshState();
@@ -191,6 +276,12 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const syncFromSupabase = async () => {
     const res = await dataProvider.syncFromSupabase();
+    refreshState();
+    return res;
+  };
+
+  const pushAllToSupabase = async () => {
+    const res = await dataProvider.pushAllToSupabase();
     refreshState();
     return res;
   };
@@ -213,7 +304,57 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const submitPartyInquiry = async (inquiry: any) => {
-    return await dataProvider.submitPartyInquiry(inquiry);
+    const ok = await dataProvider.submitPartyInquiry(inquiry);
+    refreshState();
+    return ok;
+  };
+
+  const addOrder = (orderInput: Parameters<typeof dataProvider.addOrder>[0]) => {
+    const created = dataProvider.addOrder(orderInput);
+    refreshState();
+    return created;
+  };
+
+  const updateOrderStatus = (orderId: string, status: OrderStatus) => {
+    dataProvider.updateOrderStatus(orderId, status);
+    refreshState();
+  };
+
+  const deleteOrder = (orderId: string) => {
+    dataProvider.deleteOrder(orderId);
+    refreshState();
+  };
+
+  const clearOrders = () => {
+    dataProvider.clearOrders();
+    refreshState();
+  };
+
+  const addReservation = (resInput: Omit<TableReservation, 'id' | 'createdAt' | 'status'>) => {
+    const created = dataProvider.addReservation(resInput);
+    refreshState();
+    return created;
+  };
+
+  const updateReservationStatus = (id: string, status: ReservationStatus) => {
+    dataProvider.updateReservationStatus(id, status);
+    refreshState();
+  };
+
+  const deleteReservation = (id: string) => {
+    dataProvider.deleteReservation(id);
+    refreshState();
+  };
+
+  const addContactMessage = (msgInput: Omit<ContactMessage, 'id' | 'createdAt' | 'isRead'>) => {
+    const created = dataProvider.addContactMessage(msgInput);
+    refreshState();
+    return created;
+  };
+
+  const deleteContactMessage = (id: string) => {
+    dataProvider.deleteContactMessage(id);
+    refreshState();
   };
 
   return (
@@ -222,10 +363,25 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         data,
         isConnected: dataProvider.isConnectedToSupabase(),
         supabaseConfig,
+        orders: data.orders || [],
+        reservations: data.reservations || [],
+        contactMessages: data.contactMessages || [],
+        addOrder,
+        updateOrderStatus,
+        deleteOrder,
+        clearOrders,
+        addReservation,
+        updateReservationStatus,
+        deleteReservation,
+        addContactMessage,
+        deleteContactMessage,
         updateProfile,
         updateSections,
+        updateSectionContents,
         updateOrderSettings,
         updateOpeningHours,
+        updateSocials,
+        updateSEO,
         saveCategory,
         deleteCategory,
         saveItem,
@@ -243,9 +399,16 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         deleteOffer,
         saveFAQ,
         deleteFAQ,
+        saveChef,
+        deleteChef,
+        saveTimelineEvent,
+        deleteTimelineEvent,
+        saveBlogPost,
+        deleteBlogPost,
         connectSupabase,
         disconnectSupabase,
         syncFromSupabase,
+        pushAllToSupabase,
         exportData,
         importData,
         resetDefaults,

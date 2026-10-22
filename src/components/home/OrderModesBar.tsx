@@ -1,105 +1,137 @@
-import React from 'react';
-import { ExternalLink, ShoppingBag, Bike, Utensils } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
 import { useRestaurant } from '../../context/RestaurantContext';
-import { useCart } from '../../context/CartContext';
+
+const DEFAULT_CAT_IMAGES: Record<string, string> = {
+  'cat-burgers': 'https://preview.themewagon.com/sarab/img/category/2.jpg',
+  'cat-pizza': 'https://preview.themewagon.com/sarab/img/category/3.jpg',
+  'cat-chicken': 'https://preview.themewagon.com/sarab/img/category/4.jpg',
+  'cat-wraps': 'https://preview.themewagon.com/sarab/img/category/5.jpg',
+  'cat-desserts': 'https://preview.themewagon.com/sarab/img/category/6.jpg',
+  'cat-pasta': 'https://preview.themewagon.com/sarab/img/menu/6.jpg',
+};
 
 export const OrderModesBar: React.FC = () => {
   const { data } = useRestaurant();
-  const { orderSettings, profile } = data;
-  const { setIsCartOpen } = useCart();
+  const { categories, items } = data;
+  const [activeCat, setActiveCat] = useState<string>('all');
+
+  const activeCategories = useMemo(
+    () => categories.filter((c) => c.isActive).sort((a, b) => a.displayOrder - b.displayOrder),
+    [categories]
+  );
+
+  const visibleItemsCount = useMemo(
+    () => items.filter((i) => i.stockStatus !== 'hidden').length,
+    [items]
+  );
 
   if (!data.websiteSections.showOrderModes) return null;
 
-  const hasSwiggy = Boolean(orderSettings.enableOnlinePlatformLinks && orderSettings.swiggyUrl);
-  const hasZomato = Boolean(orderSettings.enableOnlinePlatformLinks && orderSettings.zomatoUrl);
-  const hasOther = Boolean(
-    orderSettings.enableOnlinePlatformLinks &&
-      orderSettings.otherPlatformUrl &&
-      orderSettings.otherPlatformName
-  );
+  const menuContent = data.sectionContents?.menu;
+
+  const handleCategoryClick = (catId: string) => {
+    setActiveCat(catId);
+    window.dispatchEvent(new CustomEvent('sarab:select-category', { detail: catId }));
+    const menuEl = document.getElementById('menu');
+    if (menuEl) {
+      menuEl.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
 
   return (
-    <div className="bg-white border-b border-neutral-200 py-4 shadow-xs">
+    <section id="category" className="py-16 sm:py-20 bg-[#fff8f0]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          {/* Order Methods Overview */}
-          <div className="flex flex-wrap items-center gap-6 text-xs text-neutral-600">
-            {orderSettings.acceptHomeDelivery && (
-              <div className="flex items-center gap-2">
-                <Bike className="w-4 h-4 text-amber-700" />
-                <span className="font-semibold text-neutral-900">Direct Delivery:</span>
-                <span>{orderSettings.estimatedDeliveryTime}</span>
-              </div>
+        {/* Section Heading */}
+        <div className="text-center mb-10 sm:mb-12">
+          <span className="slbl">{menuContent?.categoryKicker || 'What We Offer'}</span>
+          <h2 className="stitle">
+            {menuContent?.categoryTitle ? (
+              menuContent.categoryTitle
+            ) : (
+              <>
+                Browse by <span>Category</span>
+              </>
             )}
-            {orderSettings.acceptTakeaway && (
-              <div className="flex items-center gap-2">
-                <Utensils className="w-4 h-4 text-amber-700" />
-                <span className="font-semibold text-neutral-900">Takeaway:</span>
-                <span>{orderSettings.estimatedPickupTime}</span>
-              </div>
-            )}
-            {orderSettings.freeDeliveryThreshold > 0 && (
-              <span className="hidden lg:inline text-neutral-400">·</span>
-            )}
-            {orderSettings.freeDeliveryThreshold > 0 && (
-              <span className="hidden lg:inline text-amber-800 font-medium">
-                Free delivery on orders above {profile.currencySymbol}{orderSettings.freeDeliveryThreshold}
-              </span>
-            )}
-          </div>
+          </h2>
+          <div className="sline" />
+          <p className="text-[#777777] text-sm sm:text-[15px] max-w-[480px] mx-auto leading-[1.8]">
+            {menuContent?.categorySubtitle ||
+              'From sizzling burgers to exotic world cuisines - find your favourite in our menu'}
+          </p>
+        </div>
 
-          {/* External Platform Badges & Direct Order CTA */}
-          <div className="flex items-center gap-3 ml-auto">
-            {hasZomato && (
-              <a
-                href={orderSettings.zomatoUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 font-semibold text-xs flex items-center gap-1.5 transition-colors"
-                title="Order on Zomato"
-              >
-                <span>Zomato</span>
-                <ExternalLink className="w-3 h-3 text-red-500" />
-              </a>
-            )}
+        {/* Dynamic Sarab Category Cards (.catcard) */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+          {/* All Items Card */}
+          <button
+            type="button"
+            onClick={() => handleCategoryClick('all')}
+            className={`group bg-white rounded-[15px] py-5 px-3.5 text-center cursor-pointer transition-all duration-300 border-2 ${
+              activeCat === 'all'
+                ? '-translate-y-1.5 shadow-[0_14px_38px_rgba(232,40,26,0.14)] border-[#e8281a]'
+                : 'border-transparent shadow-[0_4px_18px_rgba(0,0,0,0.06)] hover:-translate-y-1.5 hover:shadow-[0_14px_38px_rgba(232,40,26,0.14)] hover:border-[#e8281a]'
+            }`}
+          >
+            <img
+              src="https://preview.themewagon.com/sarab/img/category/1.jpg"
+              alt="All Items"
+              loading="lazy"
+              decoding="async"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src =
+                  'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=400&q=80';
+              }}
+              className="w-[82px] h-[82px] rounded-full object-cover mx-auto mb-3 block transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3"
+            />
+            <div className="text-[14px] font-semibold text-[#1a1a1a] mb-0.5">All Items</div>
+            <div className="text-xs text-[#999999]">{visibleItemsCount} dishes</div>
+          </button>
 
-            {hasSwiggy && (
-              <a
-                href={orderSettings.swiggyUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-3 py-1.5 rounded-lg border border-orange-200 bg-orange-50 hover:bg-orange-100 text-orange-700 font-semibold text-xs flex items-center gap-1.5 transition-colors"
-                title="Order on Swiggy"
-              >
-                <span>Swiggy</span>
-                <ExternalLink className="w-3 h-3 text-orange-500" />
-              </a>
-            )}
+          {/* Dynamic Categories from Database */}
+          {activeCategories.map((cat) => {
+            const isActive = activeCat === cat.id;
+            const liveCount = items.filter(
+              (i) => i.categoryId === cat.id && i.stockStatus !== 'hidden'
+            ).length;
+            const imgSrc =
+              cat.imageUrl && cat.imageUrl.trim() !== ''
+                ? cat.imageUrl
+                : DEFAULT_CAT_IMAGES[cat.id] ||
+                  'https://preview.themewagon.com/sarab/img/category/2.jpg';
 
-            {hasOther && (
-              <a
-                href={orderSettings.otherPlatformUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-3 py-1.5 rounded-lg border border-neutral-200 bg-neutral-50 hover:bg-neutral-100 text-neutral-800 font-semibold text-xs flex items-center gap-1.5 transition-colors"
-              >
-                <span>{orderSettings.otherPlatformName}</span>
-                <ExternalLink className="w-3 h-3 text-neutral-400" />
-              </a>
-            )}
-
-            {orderSettings.enableCartAndCheckout && (
+            return (
               <button
-                onClick={() => setIsCartOpen(true)}
-                className="px-4 py-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-white font-semibold text-xs flex items-center gap-1.5 transition-colors shadow-xs"
+                key={cat.id}
+                type="button"
+                onClick={() => handleCategoryClick(cat.id)}
+                className={`group bg-white rounded-[15px] py-5 px-3.5 text-center cursor-pointer transition-all duration-300 border-2 ${
+                  isActive
+                    ? '-translate-y-1.5 shadow-[0_14px_38px_rgba(232,40,26,0.14)] border-[#e8281a]'
+                    : 'border-transparent shadow-[0_4px_18px_rgba(0,0,0,0.06)] hover:-translate-y-1.5 hover:shadow-[0_14px_38px_rgba(232,40,26,0.14)] hover:border-[#e8281a]'
+                }`}
               >
-                <ShoppingBag className="w-3.5 h-3.5" />
-                <span>Direct Order</span>
+                <img
+                  src={imgSrc}
+                  alt={cat.name}
+                  loading="lazy"
+                  decoding="async"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src =
+                      'https://images.unsplash.com/photo-1586190848861-99aa4a171e90?auto=format&fit=crop&w=400&q=80';
+                  }}
+                  className="w-[82px] h-[82px] rounded-full object-cover mx-auto mb-3 block transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3"
+                />
+                <div className="text-[14px] font-semibold text-[#1a1a1a] mb-0.5 truncate">
+                  {cat.name}
+                </div>
+                <div className="text-xs text-[#999999]">
+                  {cat.itemCountLabel || `${liveCount} dishes`}
+                </div>
               </button>
-            )}
-          </div>
+            );
+          })}
         </div>
       </div>
-    </div>
+    </section>
   );
 };
