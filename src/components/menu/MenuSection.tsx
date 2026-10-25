@@ -29,13 +29,24 @@ const FALLBACK_IMAGES: Record<string, string> = {
 export const MenuSection: React.FC = () => {
   const { data } = useRestaurant();
   const { profile, categories, items, variants, websiteSections } = data;
-  const { addToCart, setCustomizingItem, customizingItem, setIsCartOpen } = useCart();
+  const {
+    cart,
+    addToCart,
+    updateQuantity,
+    removeFromCart,
+    totalCount,
+    subtotal,
+    setCustomizingItem,
+    customizingItem,
+    setIsCartOpen,
+  } = useCart();
 
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [likedIds, setLikedIds] = useState<Record<string, boolean>>({});
   const [detailItem, setDetailItem] = useState<MenuItem | null>(null);
   const [detailQty, setDetailQty] = useState<number>(1);
+  const [justAddedToast, setJustAddedToast] = useState<string | null>(null);
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -47,6 +58,45 @@ export const MenuSection: React.FC = () => {
     window.addEventListener('sarab:select-category', handler);
     return () => window.removeEventListener('sarab:select-category', handler);
   }, []);
+
+  // Support direct dish links from Chatbot or URL hash (#dish-<id>)
+  useEffect(() => {
+    const openDishById = (dishId: string) => {
+      const found = items.find((i) => i.id === dishId && i.stockStatus !== 'hidden');
+      if (found) {
+        setSelectedCategory('all');
+        setSearchQuery('');
+        setDetailItem(found);
+        setDetailQty(1);
+        const menuEl = document.getElementById('menu');
+        if (menuEl) {
+          menuEl.scrollIntoView({ behavior: 'smooth' });
+        }
+      }
+    };
+
+    const handleOpenDishEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      if (customEvent.detail) {
+        openDishById(customEvent.detail);
+      }
+    };
+
+    const handleHashDish = () => {
+      if (window.location.hash.startsWith('#dish-')) {
+        const dishId = window.location.hash.replace('#dish-', '').trim();
+        if (dishId) openDishById(dishId);
+      }
+    };
+
+    handleHashDish();
+    window.addEventListener('sarab:open-dish', handleOpenDishEvent);
+    window.addEventListener('hashchange', handleHashDish);
+    return () => {
+      window.removeEventListener('sarab:open-dish', handleOpenDishEvent);
+      window.removeEventListener('hashchange', handleHashDish);
+    };
+  }, [items]);
 
   const activeCategories = useMemo(
     () => categories.filter((c) => c.isActive).sort((a, b) => a.displayOrder - b.displayOrder),
@@ -79,10 +129,18 @@ export const MenuSection: React.FC = () => {
     setDetailQty(1);
   };
 
-  const handleQuickAddOrCustomize = (e: React.MouseEvent, item: MenuItem) => {
+  const triggerAddedFeedback = (dishName: string) => {
+    setJustAddedToast(dishName);
+    setTimeout(() => {
+      setJustAddedToast((prev) => (prev === dishName ? null : prev));
+    }, 2200);
+  };
+
+  const handleDirectAddFromCard = (e: React.MouseEvent, item: MenuItem) => {
     e.stopPropagation();
     if (item.stockStatus !== 'available') return;
-    openDishPopup(item);
+    addToCart(item, undefined, [], 1);
+    triggerAddedFeedback(item.name);
   };
 
   const getCategoryName = (catId: string) => {
@@ -275,7 +333,7 @@ export const MenuSection: React.FC = () => {
                     </div>
 
                     {/* Footer (.mfoot) */}
-                    <div className="flex items-center justify-between pt-1">
+                    <div className="flex items-center justify-between pt-1 gap-2">
                       <div>
                         <div className="font-heading text-xl font-extrabold text-[#e8281a]">
                           {profile.currencySymbol}
@@ -295,21 +353,96 @@ export const MenuSection: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Circular Red Plus Button (.madd) */}
-                      <button
-                        type="button"
-                        disabled={isUnavailable}
-                        onClick={(e) => handleQuickAddOrCustomize(e, item)}
-                        className="w-9 h-9 rounded-full bg-gradient-to-br from-[#e8281a] to-[#c01e12] text-white flex items-center justify-center shadow-[0_4px_11px_rgba(232,40,26,0.28)] hover:scale-115 hover:rotate-90 transition-all duration-300 cursor-pointer disabled:opacity-40"
-                        title="View Dish Details & Add to Cart"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </button>
+                      {/* Inline Multi-Select Add / Quantity Stepper (Does NOT force open Cart Drawer!) */}
+                      {(() => {
+                        const matchingEntries = cart.filter((c) => c.item.id === item.id);
+                        const itemQtyInCart = matchingEntries.reduce((s, c) => s + c.quantity, 0);
+                        const primaryEntry = matchingEntries[0];
+
+                        if (itemQtyInCart > 0 && primaryEntry) {
+                          return (
+                            <div
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center gap-1.5 bg-[#fff8f0] border-2 border-[#e8281a] rounded-full px-2 py-1 shadow-xs"
+                            >
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  primaryEntry.quantity > 1
+                                    ? updateQuantity(primaryEntry.cartItemId, -1)
+                                    : removeFromCart(primaryEntry.cartItemId)
+                                }
+                                className="w-6 h-6 rounded-full bg-white hover:bg-[#e8281a] text-[#1a1a1a] hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                                title="Decrease quantity"
+                              >
+                                <Minus className="w-3 h-3" />
+                              </button>
+                              <span className="text-xs font-extrabold text-[#1a1a1a] min-w-4 text-center tabular-nums">
+                                {itemQtyInCart}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  updateQuantity(primaryEntry.cartItemId, 1);
+                                  triggerAddedFeedback(item.name);
+                                }}
+                                className="w-6 h-6 rounded-full bg-[#e8281a] text-white flex items-center justify-center hover:bg-[#c01e12] transition-colors cursor-pointer"
+                                title="Add one more"
+                              >
+                                <Plus className="w-3 h-3" />
+                              </button>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <button
+                            type="button"
+                            disabled={isUnavailable}
+                            onClick={(e) => handleDirectAddFromCard(e, item)}
+                            className="px-3.5 py-2 rounded-full bg-gradient-to-br from-[#e8281a] to-[#c01e12] text-white text-xs font-bold flex items-center gap-1 shadow-[0_4px_11px_rgba(232,40,26,0.28)] hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer disabled:opacity-40"
+                            title="Add to Cart (Continue selecting more items)"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Add</span>
+                          </button>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* Sticky Multi-Item Cart Summary Banner inside Menu Section */}
+        {totalCount > 0 && (
+          <div className="mt-8 bg-[#1a1a1a] text-white rounded-2xl p-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xl border border-[#e8281a]/40">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#e8281a] text-white flex items-center justify-center font-extrabold text-sm shrink-0">
+                {totalCount}
+              </div>
+              <div>
+                <p className="text-xs sm:text-sm font-bold text-white">
+                  {justAddedToast
+                    ? `✓ "${justAddedToast}" added! Select more dishes or place your order.`
+                    : `${totalCount} ${totalCount === 1 ? 'dish' : 'dishes'} selected in your cart`}
+                </p>
+                <p className="text-[11px] text-[#f6a623] font-semibold">
+                  Subtotal: {profile.currencySymbol}
+                  {subtotal.toFixed(2)} • You can keep adding more items above!
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsCartOpen(true)}
+              className="w-full sm:w-auto px-6 py-3 rounded-full bg-[#e8281a] hover:bg-[#c01e12] text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer shrink-0"
+            >
+              <ShoppingCart className="w-4 h-4" />
+              <span>View Cart &amp; Place Order →</span>
+            </button>
           </div>
         )}
       </div>
@@ -438,16 +571,14 @@ export const MenuSection: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => {
-                      for (let i = 0; i < detailQty; i++) {
-                        addToCart(detailItem);
-                      }
+                      addToCart(detailItem, undefined, [], detailQty);
+                      triggerAddedFeedback(detailItem.name);
                       setDetailItem(null);
-                      setIsCartOpen(true);
                     }}
                     className="btn-red flex-1 justify-center py-2.5 sm:py-3 text-xs sm:text-sm"
                   >
                     <ShoppingCart className="w-4 h-4" />
-                    <span>Add to Cart</span>
+                    <span>Add &amp; Keep Browsing</span>
                   </button>
                 </div>
               </div>

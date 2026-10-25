@@ -45,6 +45,8 @@ interface ChatMessage {
   text: string;
   timestamp: string;
   items?: MenuItem[];
+  showCategoryBrowser?: boolean;
+  selectedCategoryId?: string;
   orderId?: string; // renders a live-updating Order Status Card from context
   isUnanswered?: boolean;
   unansweredQuery?: string;
@@ -59,6 +61,69 @@ interface ChatMessage {
     time: string;
   };
 }
+
+// Normalize phonetic spellings (Hinglish / Hindi / Gujarati / English) for accurate dish & category search
+const normalizeFoodSearch = (raw: string): string => {
+  return raw
+    .toLowerCase()
+    .replace(/toofani|tofani|tufani|तूफानी|तूफ़ानी|તુફાની/g, 'tufani')
+    .replace(/paneer|panir|panner|पनीर|પનીર/g, 'paneer')
+    .replace(/tikka|tika|टिक्का|ટિક્કા/g, 'tikka')
+    .replace(/masala|mashala|मसाला|મસાલા/g, 'masala')
+    .replace(/burger|bargar|बर्गर|બર્ગર/g, 'burger')
+    .replace(/pizza|piza|पिज्जा|पिज़्ज़ा|પિઝા/g, 'pizza')
+    .replace(/chicken|chiken|चिकन|ચિકન/g, 'chicken')
+    .replace(/pasta|पास्ता|પાસ્તા/g, 'pasta')
+    .replace(/naan|nan|नान|નાન/g, 'naan')
+    .replace(/dal|daal|दाल|દાળ/g, 'dal')
+    .replace(/wrap|roll|रैप|रोल/g, 'wrap')
+    .replace(/lava|cake|केक/g, 'cake');
+};
+
+const QUERY_STOP_WORDS = new Set([
+  'mujhe',
+  'chahiye',
+  'milega',
+  'milegi',
+  'kya',
+  'hai',
+  'hain',
+  'ka',
+  'ki',
+  'ke',
+  'ko',
+  'se',
+  'me',
+  'mein',
+  'link',
+  'do',
+  'de',
+  'dena',
+  'batao',
+  'bataiye',
+  'price',
+  'rate',
+  'kitna',
+  'kitne',
+  'order',
+  'karna',
+  'karni',
+  'want',
+  'need',
+  'show',
+  'give',
+  'please',
+  'can',
+  'get',
+  'the',
+  'for',
+  'with',
+  'and',
+  'dish',
+  'item',
+  'food',
+  'menu',
+]);
 
 export const ChatbotWidget: React.FC = () => {
   const { data, orders, addOrder, addReservation, updateChatbotSettings } = useRestaurant();
@@ -109,6 +174,8 @@ export const ChatbotWidget: React.FC = () => {
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [specialNotes, setSpecialNotes] = useState('');
   const [orderError, setOrderError] = useState('');
+  const [orderSelectedCategory, setOrderSelectedCategory] = useState<string>('all');
+  const [orderSearchQuery, setOrderSearchQuery] = useState<string>('');
 
   // In-Chat Order Status Lookup State
   const [lookupQuery, setLookupQuery] = useState('');
@@ -382,6 +449,66 @@ export const ChatbotWidget: React.FC = () => {
     }, 1200);
   };
 
+  // Direct Dish Link Handler: Opens the dish directly in the website Menu section
+  const handleOpenDishDirectLink = (dish: MenuItem) => {
+    window.dispatchEvent(new CustomEvent('sarab:open-dish', { detail: dish.id }));
+    const menuEl = document.getElementById('menu');
+    if (menuEl) {
+      menuEl.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  // Direct Order Handler for a specific dish inside Chatbot
+  const handleDirectOrderDishInChat = (dish: MenuItem) => {
+    const alreadyInCart = cart.some(c => c.item.id === dish.id);
+    if (!alreadyInCart) {
+      addToCart(dish, undefined, [], 1, '');
+    }
+    setIsCartOpen(false);
+    setActiveMode('order_form');
+  };
+
+  // Select a Category directly inside the Chat conversation to view all its dishes
+  const handleSelectCategoryInChat = (categoryId: string) => {
+    const availableItems = data.items.filter(i => i.stockStatus === 'available');
+    const activeCategories = data.categories
+      .filter(c => c.isActive)
+      .sort((a, b) => a.displayOrder - b.displayOrder);
+    const matchedCat = activeCategories.find(c => c.id === categoryId);
+    const catItems =
+      categoryId === 'all'
+        ? availableItems
+        : availableItems.filter(i => i.categoryId === categoryId);
+    const catTitle = matchedCat ? matchedCat.name : 'All Menu Categories';
+    const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    const userMsg: ChatMessage = {
+      id: `user-cat-${Date.now()}`,
+      sender: 'user',
+      text: `📂 Category: ${catTitle}`,
+      timestamp: now,
+    };
+
+    const botMsg: ChatMessage = {
+      id: `bot-cat-${Date.now() + 1}`,
+      sender: 'bot',
+      text:
+        lang === 'hi'
+          ? `🍴 "${catTitle}" कैटेगरी में ${catItems.length} डिश उपलब्ध हैं। आप "+ Add" दबाकर एक से ज़्यादा डिश चुन सकते हैं और अंत में ऑर्डर प्लेस कर सकते हैं:`
+          : lang === 'gu'
+          ? `🍴 "${catTitle}" કેટેગરીમાં ${catItems.length} વાનગીઓ ઉપલબ્ધ છે. તમે "+ Add" દબાવીને એકથી વધુ વાનગીઓ પસંદ કરી શકો છો:`
+          : `🍴 Showing all ${catItems.length} dishes in "${catTitle}". Select multiple items using "+ Add" and place your order at the end:`,
+      timestamp: now,
+      items: catItems,
+      showCategoryBrowser: true,
+      selectedCategoryId: categoryId,
+    };
+
+    const nextMessages = [...messages, userMsg, botMsg];
+    setMessages(nextMessages);
+    recordChatInteraction(nextMessages, undefined, `Category Selected: ${catTitle}`);
+  };
+
   // Detect & Share Customer Live GPS Location
   const handleDetectCustomerLocation = (target: 'chat' | 'order_form') => {
     if (!navigator.geolocation) {
@@ -487,6 +614,8 @@ export const ChatbotWidget: React.FC = () => {
   ): {
     text: string;
     items?: MenuItem[];
+    showCategoryBrowser?: boolean;
+    selectedCategoryId?: string;
     orderId?: string;
     isUnanswered?: boolean;
     unansweredQuery?: string;
@@ -637,61 +766,93 @@ export const ChatbotWidget: React.FC = () => {
       }
     }
 
-    // 4. Specific Dish Search (Name, Tag, or Description match)
+    // 4. Specific Dish Search (Phonetic + Multi-Language + Tag + Name match, e.g. "paneer tufani")
+    const normQ = normalizeFoodSearch(q);
+    const meaningfulTokens = normQ
+      .replace(/[^a-z0-9\u0900-\u097F\u0A80-\u0AFF\s]/g, ' ')
+      .split(/\s+/)
+      .filter(w => w.length >= 3 && !QUERY_STOP_WORDS.has(w));
+
     const matchedDishes = availableItems.filter(item => {
-      const nameMatch = item.name.toLowerCase().includes(q);
-      const wordMatch = item.name
-        .toLowerCase()
-        .split(/\s+/)
-        .some(w => w.length > 3 && q.includes(w));
-      const tagMatch = (item.tags || []).some(t => q.includes(t.toLowerCase()));
-      return nameMatch || wordMatch || tagMatch;
+      const normName = normalizeFoodSearch(item.name);
+      const normDesc = normalizeFoodSearch(item.description || '');
+      const normTags = (item.tags || []).map(t => normalizeFoodSearch(t));
+
+      if (normQ.length >= 3 && normName.includes(normQ)) return true;
+
+      if (meaningfulTokens.length > 0) {
+        // Check if all meaningful dish tokens match name/tags, or any strong token (>3 chars) matches name
+        const allTokensInItem = meaningfulTokens.every(
+          tk =>
+            normName.includes(tk) ||
+            normTags.some(t => t.includes(tk)) ||
+            normDesc.includes(tk)
+        );
+        if (allTokensInItem) return true;
+
+        const nameWords = normName.split(/[^a-z0-9]+/).filter(w => w.length >= 4);
+        if (nameWords.some(nw => meaningfulTokens.includes(nw))) return true;
+      }
+
+      return false;
     });
 
     if (
       !forcedAction &&
       matchedDishes.length > 0 &&
-      !q.includes('menu') &&
-      !q.includes('मेनू') &&
-      !q.includes('મેનુ')
+      !['menu', 'full menu', 'मेनू', 'મેનુ'].includes(q)
     ) {
-      const top = matchedDishes.slice(0, 4);
-      const lines = top.map(i => {
+      const lines = matchedDishes.map(i => {
+        const catObj = activeCategories.find(c => c.id === i.categoryId);
         const itemVariants = data.variants.filter(
           v => v.menuItemId === i.id && v.isAvailable
         );
         const variantStr =
           itemVariants.length > 0
-            ? ` (Sizes: ${itemVariants.map(v => `${v.name} ${currency}${v.price}`).join(', ')})`
+            ? ` (Options: ${itemVariants.map(v => `${v.name} ${currency}${v.price}`).join(', ')})`
             : '';
-        return `• ${i.name} — ${currency}${i.price.toFixed(2)}${variantStr}`;
+        return `🍽️ ${i.name} (${catObj?.name || 'Special'}) — ${currency}${i.price.toFixed(2)}${variantStr}\n   🔗 Direct Link: #dish-${i.id}`;
       });
 
       return {
         text:
           lang === 'hi'
-            ? `🍽️ हमारे मेनू में यह उपलब्ध है:\n${lines.join('\n')}\n\nआप "+ Add" दबाकर सीधे चैट से ऑर्डर कन्फर्म कर सकते हैं!`
+            ? `✅ जी हाँ! आपकी पूछी गई डिश हमारे मेनू में उपलब्ध है:\n\n${lines.join('\n\n')}\n\n👇 नीचे दिए गए डायरेक्ट लिंक से आप इसे कार्ट में जोड़ सकते हैं (+ Add), और भी प्रोडक्ट चुन सकते हैं, या "⚡ Direct Order" से तुरंत ऑर्डर कर सकते हैं:`
             : lang === 'gu'
-            ? `🍽️ અમારા મેનુમાં આ ઉપલબ્ધ છે:\n${lines.join('\n')}\n\nતમે "+ Add" દબાવીને સીધો ચેટમાંથી જ ઓર્ડર કન્ફર્મ કરી શકો છો!`
-            : `🍽️ Here are the matching dishes & prices from our live menu:\n${lines.join('\n')}\n\nTap "+ Add" on any card below to order right inside chat!`,
-        items: settings.enableDishCards ? top : undefined,
-        matchedTopic: 'Menu Dish Inquiry',
+            ? `✅ હા! તમે પૂછેલી વાનગી અમારા મેનુમાં ઉપલબ્ધ છે:\n\n${lines.join('\n\n')}\n\n👇 નીચેના ડાયરેક્ટ લિંક અને કાર્ડથી તમે "+ Add" કરી શકો છો અથવા "⚡ Direct Order" કરી શકો છો:`
+            : `✅ Yes! Here is the direct dish link & live details from our menu:\n\n${lines.join('\n\n')}\n\n👇 Use the card below to "+ Add" (and keep selecting more dishes), click "⚡ Direct Order", or open the dish directly in the menu:`,
+        items: matchedDishes,
+        showCategoryBrowser: true,
+        matchedTopic: `Dish Link: ${matchedDishes[0].name}`,
       };
     }
 
     // 5. Category Match
-    const matchedCat = activeCategories.find(
-      c => q.includes(c.name.toLowerCase()) || q.includes(c.slug.toLowerCase())
-    );
+    const matchedCat = activeCategories.find(c => {
+      const normCatName = normalizeFoodSearch(c.name);
+      const normSlug = normalizeFoodSearch(c.slug);
+      return (
+        q.includes(c.name.toLowerCase()) ||
+        q.includes(c.slug.toLowerCase()) ||
+        normQ.includes(normCatName) ||
+        normQ.includes(normSlug)
+      );
+    });
     if (!forcedAction && matchedCat) {
       const catItems = availableItems.filter(i => i.categoryId === matchedCat.id);
       const list = catItems
-        .slice(0, 5)
         .map(i => `• ${i.name}: ${currency}${i.price.toFixed(2)}`)
         .join('\n');
       return {
-        text: `🍴 ${matchedCat.name} (${catItems.length} dishes):\n${list}`,
-        items: settings.enableDishCards ? catItems.slice(0, 4) : undefined,
+        text:
+          lang === 'hi'
+            ? `🍴 ${matchedCat.name} कैटेगरी के सभी ${catItems.length} प्रोडक्ट नीचे दिए गए हैं। आप एक से ज़्यादा प्रोडक्ट "+ Add" कर सकते हैं और अंत में ऑर्डर प्लेस कर सकते हैं:\n${list}`
+            : lang === 'gu'
+            ? `🍴 ${matchedCat.name} કેટેગરીની તમામ ${catItems.length} વાનગીઓ નીચે મુજબ છે:\n${list}`
+            : `🍴 All ${catItems.length} dishes in ${matchedCat.name}:\n${list}\n\nSelect multiple items below and place your order when ready!`,
+        items: catItems,
+        showCategoryBrowser: true,
+        selectedCategoryId: matchedCat.id,
         matchedTopic: `Category: ${matchedCat.name}`,
       };
     }
@@ -705,16 +866,17 @@ export const ChatbotWidget: React.FC = () => {
       q.includes('बेस्ट') ||
       q.includes('બેસ્ટ')
     ) {
-      const best = availableItems.filter(i => i.isBestseller).slice(0, 4);
+      const best = availableItems.filter(i => i.isBestseller);
       const list = best.map(i => `⭐ ${i.name} — ${currency}${i.price.toFixed(2)}`).join('\n');
       return {
         text:
           lang === 'hi'
-            ? `🔥 हमारे सबसे लोकप्रिय बेस्टसेलर डिश:\n${list}`
+            ? `🔥 हमारे सबसे लोकप्रिय बेस्टसेलर डिश (${best.length} आइटम):\n${list}`
             : lang === 'gu'
-            ? `🔥 અમારી સૌથી લોકપ્રિય બેસ્ટસેલર વાનગીઓ:\n${list}`
-            : `🔥 Our Top-Rated Best Sellers:\n${list}`,
-        items: settings.enableDishCards ? best : undefined,
+            ? `🔥 અમારી સૌથી લોકપ્રિય બેસ્ટસેલર વાનગીઓ (${best.length} આઇટમ):\n${list}`
+            : `🔥 Our Top-Rated Best Sellers (${best.length} dishes):\n${list}`,
+        items: best,
+        showCategoryBrowser: true,
         matchedTopic: 'Best Sellers',
       };
     }
@@ -729,7 +891,6 @@ export const ChatbotWidget: React.FC = () => {
     ) {
       const vegItems = availableItems.filter(i => i.isVeg);
       const list = vegItems
-        .slice(0, 5)
         .map(i => `🌿 ${i.name} — ${currency}${i.price.toFixed(2)}`)
         .join('\n');
       return {
@@ -738,19 +899,22 @@ export const ChatbotWidget: React.FC = () => {
             ? `🌿 हमारे पास ${vegItems.length} शुद्ध शाकाहारी (Veg) डिश उपलब्ध हैं:\n${list}`
             : lang === 'gu'
             ? `🌿 અમારી પાસે ${vegItems.length} શુદ્ધ શાકાહારી (Veg) વાનગીઓ ઉપલબ્ધ છે:\n${list}`
-            : `🌿 We have ${vegItems.length} Vegetarian dishes available:\n${list}`,
-        items: settings.enableDishCards ? vegItems.slice(0, 4) : undefined,
+            : `🌿 All ${vegItems.length} Vegetarian dishes from our menu:\n${list}`,
+        items: vegItems,
+        showCategoryBrowser: true,
         matchedTopic: 'Vegetarian Menu',
       };
     }
 
-    // 8. Full Menu & Prices
+    // 8. Full Menu & All Categories Interactive Selector
     if (
       forcedAction === 'menu' ||
       q.includes('menu') ||
       q.includes('price') ||
       q.includes('food') ||
       q.includes('dish') ||
+      q.includes('category') ||
+      q.includes('categories') ||
       q.includes('मेनू') ||
       q.includes('रेट') ||
       q.includes('મેનુ') ||
@@ -762,15 +926,16 @@ export const ChatbotWidget: React.FC = () => {
           return `• ${c.name} (${count} items)`;
         })
         .join('\n');
-      const featured = availableItems.slice(0, 4);
       return {
         text:
           lang === 'hi'
-            ? `📋 ${data.profile.name} का लाइव मेनू (${availableItems.length} उपलब्ध डिश):\n${catSummary}\n\nकिसी भी कैटेगरी या डिश का नाम लिखें या नीचे से सीधे ऑर्डर में जोड़ें:`
+            ? `📋 ${data.profile.name} का पूरा मेनू (${availableItems.length} डिश, ${activeCategories.length} कैटेगरी):\n${catSummary}\n\n👇 नीचे किसी भी कैटेगरी पर क्लिक करें या "+ Add" दबाकर मनपसंद प्रोडक्ट्स चुनें और अंत में ऑर्डर प्लेस करें:`
             : lang === 'gu'
-            ? `📋 ${data.profile.name} નું લાઈવ મેનુ (${availableItems.length} વાનગીઓ):\n${catSummary}\n\nકોઈપણ વાનગીનું નામ લખો અથવા નીચેથી સીધા ઓર્ડરમાં ઉમેરો:`
-            : `📋 ${data.profile.name} Live Menu (${availableItems.length} dishes across ${activeCategories.length} categories):\n${catSummary}\n\nTap "+ Add" below or ask for any dish price!`,
-        items: settings.enableDishCards ? featured : undefined,
+            ? `📋 ${data.profile.name} નું સંપૂર્ણ મેનુ (${availableItems.length} વાનગીઓ, ${activeCategories.length} કેટેગરી):\n${catSummary}\n\n👇 નીચે કોઈપણ કેટેગરી પસંદ કરો અને "+ Add" દબાવીને વાનગીઓ ઉમેરો:`
+            : `📋 ${data.profile.name} Complete Menu (${availableItems.length} dishes across ${activeCategories.length} categories):\n${catSummary}\n\n👇 Tap any Category button below to filter, add multiple products to your cart, and place your order at the end!`,
+        items: availableItems,
+        showCategoryBrowser: true,
+        selectedCategoryId: 'all',
         matchedTopic: 'Full Menu Overview',
       };
     }
@@ -983,6 +1148,8 @@ export const ChatbotWidget: React.FC = () => {
       text: reply.text,
       timestamp: now,
       items: reply.items,
+      showCategoryBrowser: reply.showCategoryBrowser,
+      selectedCategoryId: reply.selectedCategoryId,
       orderId: reply.orderId,
       isUnanswered: reply.isUnanswered,
       unansweredQuery: reply.unansweredQuery,
@@ -1377,41 +1544,104 @@ export const ChatbotWidget: React.FC = () => {
             )}
           </div>
 
-          {/* MODE 1: IN-CHAT INSTANT ORDER CONFIRMATION PANEL */}
+          {/* MODE 1: IN-CHAT INSTANT ORDER CONFIRMATION PANEL (WITH FULL CATEGORY & PRODUCT BROWSER) */}
           {activeMode === 'order_form' && (
             <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#fff8f0]">
-              <div className="bg-white rounded-2xl p-4 border border-[#e0d6c8] shadow-xs">
-                <div className="flex items-center justify-between mb-3">
+              {/* 1A. Browse All Categories & Menu Products to Add Multiple Items */}
+              <div className="bg-white rounded-2xl p-3.5 border border-[#e0d6c8] shadow-xs space-y-2.5">
+                <div className="flex items-center justify-between">
                   <h5 className="font-bold text-xs uppercase tracking-wider text-[#1a1a1a]">
-                    1. Your Selected Dishes ({itemCount})
+                    1. Select Dishes by Category
                   </h5>
-                  {cart.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={clearCart}
-                      className="text-[11px] text-red-600 font-semibold flex items-center gap-1 cursor-pointer"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                      <span>Clear</span>
-                    </button>
-                  )}
+                  <span className="text-[10px] font-semibold text-[#7a6e65]">
+                    {data.items.filter(i => i.stockStatus === 'available').length} dishes available
+                  </span>
                 </div>
 
-                {cart.length === 0 ? (
-                  <div className="space-y-2.5">
-                    <p className="text-xs text-[#7a6e65]">
-                      Tap any popular dish below to add to your order:
-                    </p>
-                    <div className="grid grid-cols-1 gap-2 max-h-44 overflow-y-auto pr-1">
-                      {data.items
-                        .filter(i => i.stockStatus === 'available')
-                        .slice(0, 6)
-                        .map(dish => (
-                          <div
-                            key={dish.id}
-                            className="flex items-center justify-between p-2 rounded-xl bg-[#fff8f0] border border-[#e0d6c8]"
-                          >
-                            <div className="min-w-0 pr-2">
+                {/* Category Filter Pills (All Categories from Menu) */}
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
+                  <button
+                    type="button"
+                    onClick={() => setOrderSelectedCategory('all')}
+                    className={`px-2.5 py-1 rounded-full text-[10.5px] font-bold whitespace-nowrap transition-all cursor-pointer shrink-0 ${
+                      orderSelectedCategory === 'all'
+                        ? 'bg-[#e8281a] text-white'
+                        : 'bg-[#fff8f0] text-[#5a524c] border border-[#e0d6c8] hover:border-[#e8281a]'
+                    }`}
+                  >
+                    All ({data.items.filter(i => i.stockStatus === 'available').length})
+                  </button>
+                  {data.categories
+                    .filter(c => c.isActive)
+                    .sort((a, b) => a.displayOrder - b.displayOrder)
+                    .map(cat => {
+                      const count = data.items.filter(
+                        i => i.stockStatus === 'available' && i.categoryId === cat.id
+                      ).length;
+                      return (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          onClick={() => setOrderSelectedCategory(cat.id)}
+                          className={`px-2.5 py-1 rounded-full text-[10.5px] font-bold whitespace-nowrap transition-all cursor-pointer shrink-0 ${
+                            orderSelectedCategory === cat.id
+                              ? 'bg-[#e8281a] text-white'
+                              : 'bg-[#fff8f0] text-[#5a524c] border border-[#e0d6c8] hover:border-[#e8281a]'
+                          }`}
+                        >
+                          {cat.name} ({count})
+                        </button>
+                      );
+                    })}
+                </div>
+
+                {/* Quick Dish Search inside Order Form */}
+                <input
+                  type="text"
+                  value={orderSearchQuery}
+                  onChange={e => setOrderSearchQuery(e.target.value)}
+                  placeholder="Search any dish (e.g., Paneer Toofani, Burger, Pizza)..."
+                  className="w-full px-3 py-1.5 rounded-xl bg-[#fff8f0] border border-[#e0d6c8] text-xs"
+                />
+
+                {/* All Matching Menu Products with Multi-Select (- / +) Controls */}
+                <div className="grid grid-cols-1 gap-1.5 max-h-48 overflow-y-auto pr-1">
+                  {data.items
+                    .filter(i => {
+                      if (i.stockStatus !== 'available') return false;
+                      if (
+                        orderSelectedCategory !== 'all' &&
+                        i.categoryId !== orderSelectedCategory
+                      ) {
+                        return false;
+                      }
+                      if (orderSearchQuery.trim()) {
+                        const nq = normalizeFoodSearch(orderSearchQuery.trim());
+                        const nn = normalizeFoodSearch(i.name);
+                        const nd = normalizeFoodSearch(i.description || '');
+                        return nn.includes(nq) || nd.includes(nq);
+                      }
+                      return true;
+                    })
+                    .map(dish => {
+                      const matchingCartEntries = cart.filter(c => c.item.id === dish.id);
+                      const qtyInCart = matchingCartEntries.reduce((s, c) => s + c.quantity, 0);
+                      const primaryEntry = matchingCartEntries[0];
+
+                      return (
+                        <div
+                          key={dish.id}
+                          className="flex items-center justify-between p-2 rounded-xl bg-[#fff8f0] border border-[#e0d6c8] gap-2"
+                        >
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            {dish.imageUrl && (
+                              <img
+                                src={dish.imageUrl}
+                                alt={dish.name}
+                                className="w-9 h-9 rounded-lg object-cover shrink-0"
+                              />
+                            )}
+                            <div className="min-w-0">
                               <p className="text-xs font-bold text-[#1a1a1a] truncate">
                                 {dish.name}
                               </p>
@@ -1420,19 +1650,66 @@ export const ChatbotWidget: React.FC = () => {
                                 {dish.price.toFixed(2)}
                               </p>
                             </div>
+                          </div>
+
+                          {qtyInCart > 0 && primaryEntry ? (
+                            <div className="flex items-center gap-1 bg-white border border-[#e8281a] rounded-lg px-1.5 py-0.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  primaryEntry.quantity > 1
+                                    ? updateQuantity(primaryEntry.cartItemId, -1)
+                                    : removeFromCart(primaryEntry.cartItemId)
+                                }
+                                className="w-5 h-5 rounded-md bg-[#fff8f0] flex items-center justify-center text-xs cursor-pointer"
+                              >
+                                <Minus className="w-3 h-3" />
+                              </button>
+                              <span className="text-xs font-extrabold w-4 text-center">
+                                {qtyInCart}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => updateQuantity(primaryEntry.cartItemId, 1)}
+                                className="w-5 h-5 rounded-md bg-[#e8281a] text-white flex items-center justify-center text-xs cursor-pointer"
+                              >
+                                <Plus className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ) : (
                             <button
                               type="button"
                               onClick={() => handleQuickAddItem(dish)}
-                              className="px-3 py-1.5 rounded-lg bg-[#e8281a] text-white text-[11px] font-bold shrink-0 cursor-pointer"
+                              className="px-2.5 py-1.5 rounded-lg bg-[#1a1a1a] hover:bg-[#e8281a] text-white text-[11px] font-bold shrink-0 cursor-pointer"
                             >
                               + Add
                             </button>
-                          </div>
-                        ))}
-                    </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+
+              {/* 1B. Selected Cart Items Summary */}
+              {cart.length > 0 && (
+                <div className="bg-white rounded-2xl p-3.5 border border-[#e0d6c8] shadow-xs">
+                  <div className="flex items-center justify-between mb-2">
+                    <h5 className="font-bold text-xs uppercase tracking-wider text-[#1a1a1a]">
+                      Selected in Cart ({itemCount} items • {currency}
+                      {subtotal.toFixed(2)})
+                    </h5>
+                    <button
+                      type="button"
+                      onClick={clearCart}
+                      className="text-[11px] text-red-600 font-semibold flex items-center gap-1 cursor-pointer"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      <span>Clear</span>
+                    </button>
                   </div>
-                ) : (
-                  <div className="space-y-2">
+
+                  <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
                     {cart.map(cItem => (
                       <div
                         key={cItem.cartItemId}
@@ -1473,8 +1750,8 @@ export const ChatbotWidget: React.FC = () => {
                       </div>
                     ))}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
 
               {/* Customer Details & Confirm Form */}
               <form
@@ -1975,77 +2252,180 @@ export const ChatbotWidget: React.FC = () => {
                         </div>
                       )}
 
-                      {/* Interactive Dish Cards inside Chat */}
+                      {/* Interactive Category Selector Pills inside Chat */}
+                      {msg.showCategoryBrowser && (
+                        <div className="mt-2.5 w-full bg-white rounded-2xl p-2.5 border border-[#e0d6c8] shadow-2xs">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-[#7a6e65] mb-1.5">
+                            {lang === 'hi'
+                              ? '📂 कैटेगरी चुनें (सभी प्रोडक्ट्स देखें):'
+                              : lang === 'gu'
+                              ? '📂 કેટેગરી પસંદ કરો:'
+                              : '📂 Browse by Category (Select Multiple Dishes):'}
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleSelectCategoryInChat('all')}
+                              className={`px-2.5 py-1 rounded-full text-[10.5px] font-bold transition-all cursor-pointer ${
+                                msg.selectedCategoryId === 'all'
+                                  ? 'bg-[#e8281a] text-white'
+                                  : 'bg-[#fff8f0] text-[#1a1a1a] border border-[#e0d6c8] hover:border-[#e8281a]'
+                              }`}
+                            >
+                              All ({data.items.filter(i => i.stockStatus === 'available').length})
+                            </button>
+                            {data.categories
+                              .filter(c => c.isActive)
+                              .sort((a, b) => a.displayOrder - b.displayOrder)
+                              .map(cat => {
+                                const count = data.items.filter(
+                                  i => i.stockStatus === 'available' && i.categoryId === cat.id
+                                ).length;
+                                return (
+                                  <button
+                                    key={cat.id}
+                                    type="button"
+                                    onClick={() => handleSelectCategoryInChat(cat.id)}
+                                    className={`px-2.5 py-1 rounded-full text-[10.5px] font-bold transition-all cursor-pointer ${
+                                      msg.selectedCategoryId === cat.id
+                                        ? 'bg-[#e8281a] text-white'
+                                        : 'bg-[#fff8f0] text-[#1a1a1a] border border-[#e0d6c8] hover:border-[#e8281a]'
+                                    }`}
+                                  >
+                                    {cat.name} ({count})
+                                  </button>
+                                );
+                              })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Interactive Dish Cards with Multi-Select (- / +) & Direct Links inside Chat */}
                       {msg.items && msg.items.length > 0 && (
-                        <div className="mt-2.5 w-full space-y-2">
+                        <div className="mt-2.5 w-full space-y-2 max-h-72 overflow-y-auto pr-1">
                           {msg.items.map(dish => {
                             const isAdded = addedItemIds[dish.id];
+                            const matchingEntries = cart.filter(c => c.item.id === dish.id);
+                            const qtyInCart = matchingEntries.reduce((s, c) => s + c.quantity, 0);
+                            const primaryEntry = matchingEntries[0];
+                            const catObj = data.categories.find(c => c.id === dish.categoryId);
+
                             return (
                               <div
                                 key={dish.id}
-                                className="bg-white rounded-2xl p-2.5 border border-[#e0d6c8] flex items-center justify-between gap-2.5 shadow-2xs"
+                                className="bg-white rounded-2xl p-2.5 border border-[#e0d6c8] space-y-2 shadow-2xs"
                               >
-                                {dish.imageUrl && (
-                                  <img
-                                    src={dish.imageUrl}
-                                    alt={dish.name}
-                                    className="w-12 h-12 rounded-xl object-cover shrink-0"
-                                  />
-                                )}
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex items-center gap-1.5">
-                                    <span
-                                      className={`w-2 h-2 rounded-full shrink-0 ${
-                                        dish.isVeg ? 'bg-green-600' : 'bg-red-600'
-                                      }`}
+                                <div className="flex items-center justify-between gap-2.5">
+                                  {dish.imageUrl && (
+                                    <img
+                                      src={dish.imageUrl}
+                                      alt={dish.name}
+                                      className="w-12 h-12 rounded-xl object-cover shrink-0 cursor-pointer"
+                                      onClick={() => handleOpenDishDirectLink(dish)}
                                     />
-                                    <p className="font-bold text-xs text-[#1a1a1a] truncate">
-                                      {dish.name}
-                                    </p>
+                                  )}
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-1.5">
+                                      <span
+                                        className={`w-2 h-2 rounded-full shrink-0 ${
+                                          dish.isVeg ? 'bg-green-600' : 'bg-red-600'
+                                        }`}
+                                      />
+                                      <p className="font-bold text-xs text-[#1a1a1a] truncate">
+                                        {dish.name}
+                                      </p>
+                                    </div>
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                      <p className="text-xs font-extrabold text-[#e8281a]">
+                                        {currency}
+                                        {dish.price.toFixed(2)}
+                                      </p>
+                                      {catObj && (
+                                        <span className="text-[10px] text-[#7a6e65] bg-[#fff8f0] px-1.5 py-0.5 rounded-md border border-[#e0d6c8]">
+                                          {catObj.name}
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
-                                  <p className="text-xs font-extrabold text-[#e8281a] mt-0.5">
-                                    {currency}
-                                    {dish.price.toFixed(2)}
-                                  </p>
+
+                                  {/* Multi-Item Selection: Inline - / + Stepper if in cart, otherwise + Add */}
+                                  {qtyInCart > 0 && primaryEntry ? (
+                                    <div className="flex items-center gap-1 bg-[#fff8f0] border-2 border-[#e8281a] rounded-xl px-1.5 py-1 shrink-0">
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          primaryEntry.quantity > 1
+                                            ? updateQuantity(primaryEntry.cartItemId, -1)
+                                            : removeFromCart(primaryEntry.cartItemId)
+                                        }
+                                        className="w-5 h-5 rounded-lg bg-white flex items-center justify-center text-xs cursor-pointer"
+                                      >
+                                        <Minus className="w-3 h-3" />
+                                      </button>
+                                      <span className="text-xs font-extrabold w-4 text-center">
+                                        {qtyInCart}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => updateQuantity(primaryEntry.cartItemId, 1)}
+                                        className="w-5 h-5 rounded-lg bg-[#e8281a] text-white flex items-center justify-center text-xs cursor-pointer"
+                                      >
+                                        <Plus className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleQuickAddItem(dish)}
+                                      className={`px-3 py-1.5 rounded-xl text-[11px] font-bold flex items-center gap-1 shrink-0 transition-all cursor-pointer ${
+                                        isAdded
+                                          ? 'bg-green-600 text-white'
+                                          : 'bg-[#1a1a1a] hover:bg-[#e8281a] text-white'
+                                      }`}
+                                    >
+                                      {isAdded ? (
+                                        <>
+                                          <Check className="w-3 h-3" />
+                                          <span>Added</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Plus className="w-3 h-3" />
+                                          <span>Add</span>
+                                        </>
+                                      )}
+                                    </button>
+                                  )}
                                 </div>
 
-                                <button
-                                  onClick={() => handleQuickAddItem(dish)}
-                                  className={`px-3 py-1.5 rounded-xl text-[11px] font-bold flex items-center gap-1 shrink-0 transition-all cursor-pointer ${
-                                    isAdded
-                                      ? 'bg-green-600 text-white'
-                                      : 'bg-[#1a1a1a] hover:bg-[#e8281a] text-white'
-                                  }`}
-                                >
-                                  {isAdded ? (
-                                    <>
-                                      <Check className="w-3 h-3" />
-                                      <span>Added</span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Plus className="w-3 h-3" />
-                                      <span>Add</span>
-                                    </>
+                                {/* Direct Action Links Row: Direct Dish Link in Menu + Direct Order Now */}
+                                <div className="flex items-center justify-between gap-1.5 pt-1.5 border-t border-[#f3e9dc]">
+                                  <a
+                                    href={`#dish-${dish.id}`}
+                                    onClick={e => {
+                                      e.preventDefault();
+                                      handleOpenDishDirectLink(dish);
+                                    }}
+                                    className="flex-1 py-1 px-2 rounded-lg bg-[#fff8f0] hover:bg-[#f3e9dc] text-[#1a1a1a] text-[10.5px] font-semibold flex items-center justify-center gap-1 border border-[#e0d6c8] cursor-pointer transition-colors"
+                                  >
+                                    <ExternalLink className="w-3 h-3 text-[#e8281a]" />
+                                    <span>Direct Menu Link</span>
+                                  </a>
+
+                                  {settings.enableOrderPlacement && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDirectOrderDishInChat(dish)}
+                                      className="flex-1 py-1 px-2 rounded-lg bg-[#e8281a]/10 hover:bg-[#e8281a] text-[#e8281a] hover:text-white text-[10.5px] font-bold flex items-center justify-center gap-1 border border-[#e8281a]/25 cursor-pointer transition-colors"
+                                    >
+                                      <ShoppingBag className="w-3 h-3" />
+                                      <span>⚡ Direct Order</span>
+                                    </button>
                                   )}
-                                </button>
+                                </div>
                               </div>
                             );
                           })}
-
-                          {settings.enableOrderPlacement && itemCount > 0 && (
-                            <button
-                              type="button"
-                              onClick={() => setActiveMode('order_form')}
-                              className="w-full py-2 rounded-xl bg-[#e8281a] text-white text-xs font-bold shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
-                            >
-                              <ShoppingBag className="w-3.5 h-3.5" />
-                              <span>
-                                Confirm Order in Chat ({itemCount} items • {currency}
-                                {subtotal.toFixed(2)})
-                              </span>
-                            </button>
-                          )}
                         </div>
                       )}
 
@@ -2057,6 +2437,29 @@ export const ChatbotWidget: React.FC = () => {
                 })}
                 <div ref={messagesEndRef} />
               </div>
+
+              {/* Persistent Multi-Item Cart Summary Bar inside Chat (Place Order at the End!) */}
+              {settings.enableOrderPlacement && itemCount > 0 && (
+                <div className="px-3 py-2 bg-[#1a1a1a] text-white flex items-center justify-between gap-2 shrink-0 border-t border-[#e8281a]/40">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-bold truncate">
+                      🛒 {itemCount} {itemCount === 1 ? 'Dish' : 'Dishes'} Selected ({currency}
+                      {subtotal.toFixed(2)})
+                    </p>
+                    <p className="text-[9.5px] text-white/70 truncate">
+                      Keep selecting more items or place order now
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveMode('order_form')}
+                    className="px-3.5 py-1.5 rounded-xl bg-[#e8281a] hover:bg-[#c01e12] text-white text-[11px] font-bold shrink-0 cursor-pointer flex items-center gap-1 shadow-xs"
+                  >
+                    <ShoppingBag className="w-3.5 h-3.5" />
+                    <span>Place Order →</span>
+                  </button>
+                </div>
+              )}
 
               {/* Quick Action Chips (Configured in Admin Panel) */}
               {activeQuickReplies.length > 0 && (

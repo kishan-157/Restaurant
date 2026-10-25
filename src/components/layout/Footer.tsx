@@ -24,7 +24,7 @@ interface FooterProps {
 export const Footer: React.FC<FooterProps> = ({ onOpenAdmin }) => {
   const { data } = useRestaurant();
   const { profile, categories, socials, orderSettings } = data;
-  const { totalCount, setIsCartOpen } = useCart();
+  const { totalCount, subtotal, setIsCartOpen } = useCart();
   const [activePolicyModal, setActivePolicyModal] = useState<'privacy' | 'terms' | null>(null);
 
   const policyContent =
@@ -221,7 +221,11 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAdmin }) => {
             className="bg-gradient-to-br from-[#e8281a] to-[#c01e12] text-white rounded-full px-3.5 py-2.5 sm:px-5 sm:py-3 shadow-[0_8px_28px_rgba(232,40,26,0.45)] flex items-center gap-2 text-xs font-bold hover:-translate-y-0.5 transition-all cursor-pointer"
           >
             <ShoppingCart className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span>My Cart</span>
+            <span>
+              {totalCount > 0
+                ? `View Cart & Order (${profile.currencySymbol}${subtotal.toFixed(2)})`
+                : 'My Cart'}
+            </span>
             <span className="w-5 h-5 rounded-full bg-white text-[#e8281a] flex items-center justify-center text-[10px] sm:text-[11px] font-extrabold tabular-nums">
               {totalCount}
             </span>

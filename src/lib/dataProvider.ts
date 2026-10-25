@@ -83,9 +83,31 @@ class DataProviderService {
     if (savedData) {
       try {
         const parsed = JSON.parse(savedData);
+        const existingCategories: MenuCategory[] = Array.isArray(parsed.categories)
+          ? parsed.categories
+          : DEFAULT_RESTAURANT_DATA.categories;
+        const mergedCategories = [
+          ...existingCategories,
+          ...DEFAULT_RESTAURANT_DATA.categories.filter(
+            (dc) => !existingCategories.some((ec) => ec.id === dc.id)
+          ),
+        ];
+
+        const existingItems: MenuItem[] = Array.isArray(parsed.items)
+          ? parsed.items
+          : DEFAULT_RESTAURANT_DATA.items;
+        const mergedItems = [
+          ...existingItems,
+          ...DEFAULT_RESTAURANT_DATA.items.filter(
+            (di) => !existingItems.some((ei) => ei.id === di.id)
+          ),
+        ];
+
         this.memoryData = {
           ...DEFAULT_RESTAURANT_DATA,
           ...parsed,
+          categories: mergedCategories,
+          items: mergedItems,
           profile: {
             ...DEFAULT_RESTAURANT_DATA.profile,
             ...(parsed.profile || {}),

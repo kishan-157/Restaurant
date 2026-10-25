@@ -61,25 +61,27 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const variantId = selectedVariant ? selectedVariant.id : 'none';
     const note = customerNote?.trim() || '';
 
-    const existingIndex = cart.findIndex(
-      (c) =>
-        c.item.id === item.id &&
-        (c.selectedVariant?.id || 'none') === variantId &&
-        c.selectedAddons.map((a) => a.id).sort().join(',') === addonIds &&
-        (c.customerNote || '') === note
-    );
+    setCart((prev) => {
+      const existingIndex = prev.findIndex(
+        (c) =>
+          c.item.id === item.id &&
+          (c.selectedVariant?.id || 'none') === variantId &&
+          c.selectedAddons.map((a) => a.id).sort().join(',') === addonIds &&
+          (c.customerNote || '') === note
+      );
 
-    if (existingIndex >= 0) {
-      const updated = [...cart];
-      const existing = updated[existingIndex];
-      const newQty = existing.quantity + quantity;
-      updated[existingIndex] = {
-        ...existing,
-        quantity: newQty,
-        lineTotal: existing.unitPrice * newQty,
-      };
-      setCart(updated);
-    } else {
+      if (existingIndex >= 0) {
+        const updated = [...prev];
+        const existing = updated[existingIndex];
+        const newQty = existing.quantity + quantity;
+        updated[existingIndex] = {
+          ...existing,
+          quantity: newQty,
+          lineTotal: existing.unitPrice * newQty,
+        };
+        return updated;
+      }
+
       const newCartItem: CartItem = {
         cartItemId: `cart-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         item,
@@ -90,10 +92,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         lineTotal,
         customerNote: note,
       };
-      setCart((prev) => [...prev, newCartItem]);
-    }
-
-    setIsCartOpen(true);
+      return [...prev, newCartItem];
+    });
   };
 
   const removeFromCart = (cartItemId: string) => {

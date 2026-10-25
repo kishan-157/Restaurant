@@ -13,16 +13,43 @@ import {
 } from 'lucide-react';
 import { useRestaurant } from '../../context/RestaurantContext';
 import { DEFAULT_RESTAURANT_DATA } from '../../data/defaultRestaurantData';
+import {
+  resolvePlayableAudioUrl,
+  getBuiltinTrackWavUrl,
+} from '../../utils/pleasantAudioGenerator';
 
 const SESSION_PLAYED_KEY = 'sarab_welcome_audio_played_session_v1';
 const DAILY_PLAYED_KEY = 'sarab_welcome_audio_played_day_v1';
 
-// Pleasant Web-Audio Royal Welcome Chime (Zero external asset dependency)
-export function playWebAudioChime(type: 'welcome' | 'cart' | 'order' = 'welcome', volume = 0.5) {
+// Shared AudioContext singleton so repeated Play clicks never hit browser max-AudioContext limits
+let sharedAudioCtx: AudioContext | null = null;
+
+function getSharedAudioContext(): AudioContext | null {
   try {
-    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
+    const AudioCtx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) return null;
+    if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
+      sharedAudioCtx = new AudioCtx();
+    }
+    if (sharedAudioCtx.state === 'suspended') {
+      sharedAudioCtx.resume().catch(() => {});
+    }
+    return sharedAudioCtx;
+  } catch {
+    return null;
+  }
+}
+
+// Pleasant Web-Audio Royal Welcome Chime (Zero external asset dependency)
+export function playWebAudioChime(
+  type: 'welcome' | 'cart' | 'order' = 'welcome',
+  volume = 0.5
+) {
+  try {
+    const ctx = getSharedAudioContext();
+    if (!ctx) return;
 
     const notes =
       type === 'welcome'
@@ -58,8 +85,10 @@ export const WebsiteAudioPlayer: React.FC = () => {
   const primaryColor = data.profile.primaryColor || '#e8281a';
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const hasAttemptedAutoRef = useRef(false);
   const isSkippedRef = useRef(false);
+  const lastStartTimeRef = useRef<number>(0);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -69,6 +98,49 @@ export const WebsiteAudioPlayer: React.FC = () => {
   const [needsUserGesture, setNeedsUserGesture] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [resolvedAudioSrc, setResolvedAudioSrc] = useState<string>(() =>
+    resolvePlayableAudioUrl(settings.activeAudioUrl)
+  );
+
+  // Keep resolvedAudioSrc updated whenever admin changes activeAudioUrl
+  useEffect(() => {
+    setResolvedAudioSrc(resolvePlayableAudioUrl(settings.activeAudioUrl));
+  }, [settings.activeAudioUrl]);
+
+  // Preload browser TTS voices on mount so Hindi/Gujarati/English voices are ready on first click
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    try {
+      window.speechSynthesis.getVoices();
+      const handleVoicesChanged = () => {
+        window.speechSynthesis.getVoices();
+      };
+      window.speechSynthesis.addEventListener?.('voiceschanged', handleVoicesChanged);
+      return () => {
+        window.speechSynthesis.removeEventListener?.('voiceschanged', handleVoicesChanged);
+      };
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // Periodic watchdog to ensure isSpeaking / isPlaying never stay stuck if browser finishes silently
+  useEffect(() => {
+    if (!isSpeaking && !isPlaying) return;
+    const interval = setInterval(() => {
+      if (isSpeaking && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        if (!window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
+          setIsSpeaking(false);
+        }
+      }
+      if (isPlaying && audioRef.current) {
+        if (audioRef.current.paused || audioRef.current.ended) {
+          setIsPlaying(false);
+        }
+      }
+    }, 600);
+    return () => clearInterval(interval);
+  }, [isSpeaking, isPlaying]);
 
   // Determine if frequency rules allow automatic prompt/playback
   const shouldTriggerForVisitor = useCallback((): boolean => {
@@ -96,124 +168,216 @@ export const WebsiteAudioPlayer: React.FC = () => {
     }
   }, []);
 
-  // Speak TTS announcement if configured
-  const speakVoiceAnnouncement = useCallback(() => {
-    if (
-      typeof window === 'undefined' ||
-      !('speechSynthesis' in window) ||
-      (settings.sourceMode !== 'voice_tts' && settings.sourceMode !== 'both')
-    ) {
-      return;
-    }
-
-    try {
-      window.speechSynthesis.cancel();
-      const script =
-        settings.voiceLanguage === 'hi-IN'
-          ? settings.voiceTextHi
-          : settings.voiceLanguage === 'gu-IN'
-          ? settings.voiceTextGu
-          : settings.voiceTextEn;
-
-      if (!script || !script.trim()) return;
-
-      const utterance = new SpeechSynthesisUtterance(script.trim());
-      utterance.lang = settings.voiceLanguage || 'hi-IN';
-      utterance.rate = settings.voiceRate || 1.0;
-      utterance.pitch = settings.voicePitch || 1.0;
-      utterance.volume = isMuted ? 0 : Math.min(1, Math.max(0.1, settings.volume ?? 0.85));
-
-      const voices = window.speechSynthesis.getVoices();
-      const langPrefix = (settings.voiceLanguage || 'hi-IN').split('-')[0];
-      const matchedVoice =
-        voices.find(v => v.lang.toLowerCase().includes(settings.voiceLanguage.toLowerCase())) ||
-        voices.find(v => v.lang.toLowerCase().startsWith(langPrefix));
-      if (matchedVoice) {
-        utterance.voice = matchedVoice;
+  // Speak TTS announcement reliably across Android, iOS, and Desktop
+  const speakVoiceAnnouncement = useCallback(
+    (forceUnmute = false) => {
+      if (
+        typeof window === 'undefined' ||
+        !('speechSynthesis' in window) ||
+        (settings.sourceMode !== 'voice_tts' && settings.sourceMode !== 'both')
+      ) {
+        return false;
       }
 
-      utterance.onstart = () => setIsSpeaking(true);
-      utterance.onend = () => {
-        setIsSpeaking(false);
-        if (settings.sourceMode === 'voice_tts' && settings.autoHideOnEnd) {
-          setShowWelcomeCard(false);
-          setIsMinimized(true);
-        }
-      };
-      utterance.onerror = () => setIsSpeaking(false);
+      try {
+        const script =
+          settings.voiceLanguage === 'hi-IN'
+            ? settings.voiceTextHi
+            : settings.voiceLanguage === 'gu-IN'
+            ? settings.voiceTextGu
+            : settings.voiceTextEn;
 
-      window.speechSynthesis.speak(utterance);
-    } catch {
-      // ignore speech synthesis errors
-    }
-  }, [
-    settings.sourceMode,
-    settings.voiceLanguage,
-    settings.voiceTextHi,
-    settings.voiceTextGu,
-    settings.voiceTextEn,
-    settings.voiceRate,
-    settings.voicePitch,
-    settings.volume,
-    settings.autoHideOnEnd,
-    isMuted,
-  ]);
+        const fallbackScript =
+          script?.trim() ||
+          settings.voiceTextHi?.trim() ||
+          settings.voiceTextEn?.trim() ||
+          `Welcome to ${data.profile.name}!`;
+
+        if (!fallbackScript) return false;
+
+        // Cancel any previous speech and resume in case Chrome paused speechSynthesis
+        window.speechSynthesis.cancel();
+        if (window.speechSynthesis.paused) {
+          window.speechSynthesis.resume();
+        }
+
+        const utterance = new SpeechSynthesisUtterance(fallbackScript);
+        utteranceRef.current = utterance; // Prevent browser GC bug mid-utterance
+
+        utterance.lang = settings.voiceLanguage || 'hi-IN';
+        utterance.rate = settings.voiceRate || 1.0;
+        utterance.pitch = settings.voicePitch || 1.0;
+        utterance.volume =
+          isMuted && !forceUnmute ? 0 : Math.min(1, Math.max(0.15, settings.volume ?? 0.85));
+
+        const voices = window.speechSynthesis.getVoices();
+        const targetLang = (settings.voiceLanguage || 'hi-IN').toLowerCase();
+        const langPrefix = targetLang.split('-')[0];
+        const matchedVoice =
+          voices.find(v => v.lang.toLowerCase() === targetLang) ||
+          voices.find(v => v.lang.toLowerCase().replace('_', '-').includes(targetLang)) ||
+          voices.find(v => v.lang.toLowerCase().startsWith(langPrefix)) ||
+          voices.find(v => v.lang.toLowerCase().includes('in'));
+
+        if (matchedVoice) {
+          utterance.voice = matchedVoice;
+        }
+
+        utterance.onstart = () => {
+          setIsSpeaking(true);
+          setNeedsUserGesture(false);
+        };
+        utterance.onend = () => {
+          setIsSpeaking(false);
+          if (settings.sourceMode === 'voice_tts' && settings.autoHideOnEnd) {
+            setShowWelcomeCard(false);
+            setIsMinimized(true);
+          }
+        };
+        utterance.onerror = () => {
+          setIsSpeaking(false);
+        };
+
+        setIsSpeaking(true);
+        window.speechSynthesis.speak(utterance);
+        if (window.speechSynthesis.paused) {
+          window.speechSynthesis.resume();
+        }
+        return true;
+      } catch {
+        setIsSpeaking(false);
+        return false;
+      }
+    },
+    [
+      settings.sourceMode,
+      settings.voiceLanguage,
+      settings.voiceTextHi,
+      settings.voiceTextGu,
+      settings.voiceTextEn,
+      settings.voiceRate,
+      settings.voicePitch,
+      settings.volume,
+      settings.autoHideOnEnd,
+      data.profile.name,
+      isMuted,
+    ]
+  );
 
   const stopAllAudio = useCallback(() => {
     if (audioRef.current) {
       audioRef.current.pause();
-      audioRef.current.currentTime = 0;
+      try {
+        audioRef.current.currentTime = 0;
+      } catch {
+        // ignore
+      }
     }
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
+      try {
+        window.speechSynthesis.cancel();
+      } catch {
+        // ignore
+      }
     }
     setIsPlaying(false);
     setIsSpeaking(false);
   }, []);
 
-  // Main function to start playing audio + voice
+  // Main function to start or restart playing audio + voice
   const startPlayback = useCallback(
-    async (isManualClick = false) => {
+    async (isManualClick = false, restartFromBeginning = false) => {
       if (isSkippedRef.current && !isManualClick) return;
+
+      if (isManualClick) {
+        isSkippedRef.current = false;
+        lastStartTimeRef.current = Date.now();
+        if (isMuted) {
+          setIsMuted(false);
+          if (audioRef.current) audioRef.current.muted = false;
+        }
+      }
 
       if (settings.enableWelcomeChime) {
         playWebAudioChime('welcome', settings.volume ?? 0.8);
       }
 
       const wantsFileAudio =
-        (settings.sourceMode === 'file_or_url' || settings.sourceMode === 'both') &&
-        Boolean(settings.activeAudioUrl && settings.activeAudioUrl.trim());
+        settings.sourceMode === 'file_or_url' || settings.sourceMode === 'both';
 
       const wantsVoice =
         settings.sourceMode === 'voice_tts' || settings.sourceMode === 'both';
 
-      if (wantsFileAudio && audioRef.current) {
-        try {
-          // If playing both background music + voice, keep music slightly softer so voice is crystal clear
-          const baseVol = Math.min(1, Math.max(0.05, settings.volume ?? 0.85));
-          audioRef.current.volume = isMuted
-            ? 0
-            : settings.sourceMode === 'both'
-            ? Math.max(0.15, baseVol * 0.45)
-            : baseVol;
-          audioRef.current.loop = Boolean(settings.loopAudio);
+      // IMPORTANT: Trigger speechSynthesis synchronously BEFORE awaiting network audio
+      // so mobile browsers (iOS Safari / Android Chrome) preserve the user-gesture token!
+      let voiceStarted = false;
+      if (wantsVoice) {
+        voiceStarted = speakVoiceAnnouncement(isManualClick);
+      }
 
-          await audioRef.current.play();
+      if (wantsFileAudio && audioRef.current) {
+        const audioEl = audioRef.current;
+        try {
+          const baseVol = Math.min(1, Math.max(0.05, settings.volume ?? 0.85));
+          audioEl.muted = isManualClick ? false : isMuted;
+          audioEl.volume =
+            isMuted && !isManualClick
+              ? 0
+              : settings.sourceMode === 'both'
+              ? Math.max(0.18, baseVol * 0.45)
+              : baseVol;
+          audioEl.loop = Boolean(settings.loopAudio);
+
+          // Ensure a valid src is loaded
+          const targetSrc = resolvePlayableAudioUrl(settings.activeAudioUrl);
+          if (!audioEl.src || audioEl.src === window.location.href) {
+            audioEl.src = targetSrc;
+          }
+
+          // If audio already ended or user requested a fresh replay, rewind to 0
+          if (
+            restartFromBeginning ||
+            audioEl.ended ||
+            (audioEl.duration > 0 && audioEl.currentTime >= audioEl.duration - 0.15)
+          ) {
+            audioEl.currentTime = 0;
+          }
+
+          await audioEl.play();
           setIsPlaying(true);
           setNeedsUserGesture(false);
           markVisitorPlayed();
-        } catch {
-          // Browser blocked unmuted autoplay before user interaction
-          setNeedsUserGesture(true);
-          return;
+        } catch (err) {
+          // Check if it failed because of a broken external URL vs autoplay block
+          const errName = err instanceof Error ? err.name : '';
+          if (errName === 'NotAllowedError') {
+            // Browser blocked automatic playback before user interaction
+            if (!voiceStarted) {
+              setNeedsUserGesture(true);
+            }
+          } else {
+            // Broken/unsupported external URL -> fallback to built-in studio track immediately!
+            try {
+              const fallbackWav = getBuiltinTrackWavUrl('warm-bossa-lounge');
+              if (fallbackWav && audioEl.src !== fallbackWav) {
+                setResolvedAudioSrc(fallbackWav);
+                audioEl.src = fallbackWav;
+                audioEl.currentTime = 0;
+                await audioEl.play();
+                setIsPlaying(true);
+                setNeedsUserGesture(false);
+                markVisitorPlayed();
+              }
+            } catch {
+              if (!voiceStarted) {
+                setNeedsUserGesture(true);
+              }
+            }
+          }
         }
-      } else {
-        markVisitorPlayed();
-      }
-
-      if (wantsVoice) {
-        speakVoiceAnnouncement();
+      } else if (voiceStarted) {
         setNeedsUserGesture(false);
+        markVisitorPlayed();
       }
     },
     [
@@ -254,7 +418,7 @@ export const WebsiteAudioPlayer: React.FC = () => {
       }
 
       if (settings.autoPlayOnLoad) {
-        startPlayback(false);
+        startPlayback(false, true);
       } else {
         setNeedsUserGesture(true);
       }
@@ -271,16 +435,22 @@ export const WebsiteAudioPlayer: React.FC = () => {
     stopAllAudio,
   ]);
 
-  // Unlock audio automatically on first visitor tap/click if browser blocked initial autoplay
+  // Unlock audio automatically on first visitor tap/click outside the audio controls
   useEffect(() => {
     if (!settings.enabled || !settings.unlockOnFirstTap || !needsUserGesture) return;
 
     const handleFirstInteraction = (e: Event) => {
       if (isSkippedRef.current) return;
-      // Ignore if clicking inside the skip button
       const target = e.target as HTMLElement | null;
-      if (target && target.closest('[data-audio-skip="true"]')) return;
-      startPlayback(true);
+      // Ignore taps inside the audio player buttons so we never race with their own onClick!
+      if (
+        target &&
+        (target.closest('[data-audio-skip="true"]') ||
+          target.closest('[data-audio-control="true"]'))
+      ) {
+        return;
+      }
+      startPlayback(true, true);
     };
 
     window.addEventListener('pointerdown', handleFirstInteraction, { once: true });
@@ -296,7 +466,7 @@ export const WebsiteAudioPlayer: React.FC = () => {
       audioRef.current.volume = isMuted
         ? 0
         : settings.sourceMode === 'both'
-        ? Math.max(0.15, baseVol * 0.45)
+        ? Math.max(0.18, baseVol * 0.45)
         : baseVol;
       audioRef.current.loop = Boolean(settings.loopAudio);
     }
@@ -304,7 +474,23 @@ export const WebsiteAudioPlayer: React.FC = () => {
 
   const handleTogglePlayPause = () => {
     isSkippedRef.current = false;
-    const currentlyActive = isPlaying || isSpeaking;
+
+    // Guard against immediate double-trigger if pointerdown just started playback <350ms ago
+    if (Date.now() - lastStartTimeRef.current < 350) {
+      return;
+    }
+
+    // Check actual live DOM/browser state so stale state never blocks Play!
+    const audioActuallyPlaying = Boolean(
+      audioRef.current && !audioRef.current.paused && !audioRef.current.ended
+    );
+    const speechActuallySpeaking = Boolean(
+      typeof window !== 'undefined' &&
+        'speechSynthesis' in window &&
+        window.speechSynthesis.speaking
+    );
+    const currentlyActive =
+      (isPlaying && audioActuallyPlaying) || (isSpeaking && speechActuallySpeaking);
 
     if (currentlyActive) {
       if (audioRef.current) audioRef.current.pause();
@@ -314,8 +500,17 @@ export const WebsiteAudioPlayer: React.FC = () => {
       setIsPlaying(false);
       setIsSpeaking(false);
     } else {
-      startPlayback(true);
+      startPlayback(true, false);
     }
+  };
+
+  const handleReplayFromStart = () => {
+    isSkippedRef.current = false;
+    stopAllAudio();
+    // Small micro-delay ensures clean reset when customer clicks Play/Replay repeatedly
+    setTimeout(() => {
+      startPlayback(true, true);
+    }, 40);
   };
 
   const handleSkipAudio = () => {
@@ -355,7 +550,7 @@ export const WebsiteAudioPlayer: React.FC = () => {
       {/* Hidden HTML5 Audio Element */}
       <audio
         ref={audioRef}
-        src={settings.activeAudioUrl || undefined}
+        src={resolvedAudioSrc || undefined}
         preload="auto"
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
@@ -364,6 +559,13 @@ export const WebsiteAudioPlayer: React.FC = () => {
         }}
         onLoadedMetadata={() => {
           if (audioRef.current) setDuration(audioRef.current.duration || 0);
+        }}
+        onError={() => {
+          // Automatic fallback to built-in studio WAV if an external URL fails to load
+          const fallback = getBuiltinTrackWavUrl('warm-bossa-lounge');
+          if (fallback && resolvedAudioSrc !== fallback) {
+            setResolvedAudioSrc(fallback);
+          }
         }}
         onEnded={() => {
           setIsPlaying(false);
@@ -376,7 +578,10 @@ export const WebsiteAudioPlayer: React.FC = () => {
 
       {/* 1. Welcome Audio Banner / Card (Mobile & Desktop Optimized) */}
       {showWelcomeCard && !isMinimized && (
-        <div className="fixed inset-x-3 bottom-20 sm:inset-x-auto sm:left-6 sm:bottom-22 z-40 sm:w-[390px] max-w-[calc(100vw-1.5rem)] animate-fadeIn">
+        <div
+          data-audio-control="true"
+          className="fixed inset-x-3 bottom-20 sm:inset-x-auto sm:left-6 sm:bottom-22 z-40 sm:w-[390px] max-w-[calc(100vw-1.5rem)] animate-fadeIn"
+        >
           <div className="bg-[#1a1a1a]/95 backdrop-blur-md text-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-[0_20px_60px_rgba(0,0,0,0.45)] border border-white/15 relative overflow-hidden">
             {/* Subtle Ambient Glow */}
             <div
@@ -384,7 +589,7 @@ export const WebsiteAudioPlayer: React.FC = () => {
               style={{ backgroundColor: primaryColor }}
             />
 
-            {/* Top Row: Badge + Minimize / Skip */}
+            {/* Top Row: Badge + Minimize / Mute */}
             <div className="flex items-center justify-between gap-2 mb-2.5">
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#f6a623]/20 border border-[#f6a623]/40 text-[#f6a623] text-[10px] font-bold uppercase tracking-wider">
                 {settings.sourceMode === 'voice_tts' ? (
@@ -398,6 +603,16 @@ export const WebsiteAudioPlayer: React.FC = () => {
               <div className="flex items-center gap-1">
                 <button
                   type="button"
+                  data-audio-control="true"
+                  onClick={handleReplayFromStart}
+                  className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-white/80 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                  title="Replay Audio from Beginning"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  data-audio-control="true"
                   onClick={handleToggleMute}
                   className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-white/80 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
                   title={isMuted ? 'Unmute' : 'Mute'}
@@ -406,6 +621,7 @@ export const WebsiteAudioPlayer: React.FC = () => {
                 </button>
                 <button
                   type="button"
+                  data-audio-control="true"
                   onClick={() => {
                     setShowWelcomeCard(false);
                     setIsMinimized(true);
@@ -423,6 +639,7 @@ export const WebsiteAudioPlayer: React.FC = () => {
               {/* Animated Equalizer Icon Circle */}
               <button
                 type="button"
+                data-audio-control="true"
                 onClick={handleTogglePlayPause}
                 className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 text-white shadow-lg transition-transform hover:scale-105 cursor-pointer"
                 style={{ backgroundColor: primaryColor }}
@@ -473,10 +690,11 @@ export const WebsiteAudioPlayer: React.FC = () => {
                 </div>
               )}
 
-            {/* Action Buttons: Play/Listen + Skip Audio + Optional Offer CTA */}
+            {/* Action Buttons: Play/Listen + Replay + Skip Audio + Optional Offer CTA */}
             <div className="flex flex-wrap items-center gap-2 pt-1">
               <button
                 type="button"
+                data-audio-control="true"
                 onClick={handleTogglePlayPause}
                 className="flex-1 min-w-[120px] py-2.5 px-3.5 rounded-xl text-xs font-bold text-white flex items-center justify-center gap-1.5 shadow-md transition-all hover:opacity-95 cursor-pointer"
                 style={{ backgroundColor: primaryColor }}
@@ -489,9 +707,20 @@ export const WebsiteAudioPlayer: React.FC = () => {
                 ) : (
                   <>
                     <Play className="w-3.5 h-3.5 fill-current" />
-                    <span>{settings.listenButtonText || '🔊 Listen Audio'}</span>
+                    <span>{settings.listenButtonText || '🔊 Play Audio'}</span>
                   </>
                 )}
+              </button>
+
+              <button
+                type="button"
+                data-audio-control="true"
+                onClick={handleReplayFromStart}
+                className="py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white/90 hover:text-white text-xs font-semibold flex items-center justify-center gap-1.5 border border-white/15 transition-all cursor-pointer"
+                title="Play Again from Start"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Replay</span>
               </button>
 
               {settings.showSkipButton !== false && (
@@ -499,7 +728,7 @@ export const WebsiteAudioPlayer: React.FC = () => {
                   type="button"
                   data-audio-skip="true"
                   onClick={handleSkipAudio}
-                  className="py-2.5 px-3.5 rounded-xl bg-white/10 hover:bg-white/20 text-white/90 hover:text-white text-xs font-semibold flex items-center justify-center gap-1.5 border border-white/15 transition-all cursor-pointer"
+                  className="py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white/90 hover:text-white text-xs font-semibold flex items-center justify-center gap-1.5 border border-white/15 transition-all cursor-pointer"
                 >
                   <SkipForward className="w-3.5 h-3.5" />
                   <span>{settings.skipButtonText || 'Skip'}</span>
@@ -526,10 +755,14 @@ export const WebsiteAudioPlayer: React.FC = () => {
 
       {/* 2. Compact Floating Audio Pill (When Minimized or Floating Pill Mode) */}
       {(isMinimized || !showWelcomeCard) && (
-        <div className="fixed left-3 sm:left-6 bottom-18 sm:bottom-20 z-30 flex items-center gap-1.5 animate-fadeIn">
+        <div
+          data-audio-control="true"
+          className="fixed left-3 sm:left-6 bottom-18 sm:bottom-20 z-30 flex items-center gap-1.5 animate-fadeIn"
+        >
           <div className="bg-[#1a1a1a]/90 backdrop-blur-md text-white rounded-full p-1 pr-3 shadow-[0_8px_28px_rgba(0,0,0,0.3)] border border-white/15 flex items-center gap-2">
             <button
               type="button"
+              data-audio-control="true"
               onClick={handleTogglePlayPause}
               className="w-8 h-8 rounded-full flex items-center justify-center text-white transition-transform hover:scale-105 cursor-pointer"
               style={{ backgroundColor: primaryColor }}
@@ -538,20 +771,24 @@ export const WebsiteAudioPlayer: React.FC = () => {
               {isAudioActive ? (
                 <Pause className="w-3.5 h-3.5 fill-current" />
               ) : (
-                <Volume2 className="w-3.5 h-3.5" />
+                <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
               )}
             </button>
 
             <button
               type="button"
+              data-audio-control="true"
               onClick={() => {
                 setIsMinimized(false);
                 setShowWelcomeCard(true);
+                if (!isAudioActive) {
+                  startPlayback(true, false);
+                }
               }}
               className="text-left cursor-pointer group"
             >
               <div className="text-[11px] font-bold text-white group-hover:text-[#f6a623] transition-colors flex items-center gap-1.5">
-                <span>{isAudioActive ? 'Playing Audio' : 'Welcome Audio'}</span>
+                <span>{isAudioActive ? 'Playing Audio' : 'Play Audio'}</span>
                 {isAudioActive && (
                   <span className="inline-flex items-end gap-0.5 h-2.5">
                     <span className="w-0.5 bg-[#f6a623] h-2.5 animate-pulse" />
@@ -560,6 +797,16 @@ export const WebsiteAudioPlayer: React.FC = () => {
                   </span>
                 )}
               </div>
+            </button>
+
+            <button
+              type="button"
+              data-audio-control="true"
+              onClick={handleReplayFromStart}
+              className="text-white/75 hover:text-[#f6a623] transition-colors cursor-pointer p-1"
+              title="Play Again from Beginning"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
             </button>
 
             {isAudioActive && (
@@ -571,17 +818,6 @@ export const WebsiteAudioPlayer: React.FC = () => {
                 title="Skip / Stop Audio"
               >
                 Skip
-              </button>
-            )}
-
-            {!isAudioActive && (
-              <button
-                type="button"
-                onClick={() => startPlayback(true)}
-                className="text-white/70 hover:text-white transition-colors cursor-pointer"
-                title="Replay Audio"
-              >
-                <RotateCcw className="w-3 h-3" />
               </button>
             )}
           </div>

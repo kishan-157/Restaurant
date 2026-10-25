@@ -21,6 +21,7 @@ import { useRestaurant } from '../../../context/RestaurantContext';
 import { DEFAULT_RESTAURANT_DATA } from '../../../data/defaultRestaurantData';
 import { AudioSettings, AudioTrackItem } from '../../../types';
 import { playWebAudioChime } from '../../common/WebsiteAudioPlayer';
+import { resolvePlayableAudioUrl } from '../../../utils/pleasantAudioGenerator';
 
 interface AdminAudioStudioProps {
   showToast?: (msg: string) => void;
@@ -281,25 +282,33 @@ export const AdminAudioStudio: React.FC<AdminAudioStudioProps> = ({ showToast })
 
   // --- 5. Admin Test / Preview Playback ---
   const handleTestAudioPreview = () => {
-    if (draft.enableWelcomeChime) {
-      playWebAudioChime('welcome', draft.volume);
+    const speechActive =
+      typeof window !== 'undefined' &&
+      'speechSynthesis' in window &&
+      window.speechSynthesis.speaking;
+
+    if (isPreviewPlaying || speechActive) {
+      if (previewAudioRef.current) {
+        previewAudioRef.current.pause();
+        previewAudioRef.current.currentTime = 0;
+      }
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+      setIsPreviewPlaying(false);
+      return;
     }
 
-    if (draft.sourceMode === 'file_or_url' || draft.sourceMode === 'both') {
-      if (previewAudioRef.current) {
-        if (isPreviewPlaying) {
-          previewAudioRef.current.pause();
-          setIsPreviewPlaying(false);
-        } else {
-          previewAudioRef.current.volume = draft.volume ?? 0.85;
-          previewAudioRef.current.play().then(() => setIsPreviewPlaying(true)).catch(() => {});
-        }
-      }
+    if (draft.enableWelcomeChime) {
+      playWebAudioChime('welcome', draft.volume);
     }
 
     if (draft.sourceMode === 'voice_tts' || draft.sourceMode === 'both') {
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
+        if (window.speechSynthesis.paused) {
+          window.speechSynthesis.resume();
+        }
         const text =
           draft.voiceLanguage === 'hi-IN'
             ? draft.voiceTextHi
@@ -312,18 +321,39 @@ export const AdminAudioStudio: React.FC<AdminAudioStudioProps> = ({ showToast })
           u.rate = draft.voiceRate || 1.0;
           u.pitch = draft.voicePitch || 1.0;
           u.volume = draft.volume ?? 0.85;
+          u.onend = () => {
+            if (draft.sourceMode === 'voice_tts') setIsPreviewPlaying(false);
+          };
+          setIsPreviewPlaying(true);
           window.speechSynthesis.speak(u);
         }
       }
     }
+
+    if (draft.sourceMode === 'file_or_url' || draft.sourceMode === 'both') {
+      if (previewAudioRef.current) {
+        previewAudioRef.current.src = resolvePlayableAudioUrl(draft.activeAudioUrl);
+        previewAudioRef.current.currentTime = 0;
+        previewAudioRef.current.volume =
+          draft.sourceMode === 'both'
+            ? Math.max(0.18, (draft.volume ?? 0.85) * 0.45)
+            : draft.volume ?? 0.85;
+        previewAudioRef.current
+          .play()
+          .then(() => setIsPreviewPlaying(true))
+          .catch(() => {});
+      }
+    }
   };
+
+  const playablePreviewSrc = resolvePlayableAudioUrl(draft.activeAudioUrl);
 
   return (
     <div className="space-y-6">
       {/* Hidden Preview Audio Element */}
       <audio
         ref={previewAudioRef}
-        src={draft.activeAudioUrl || undefined}
+        src={playablePreviewSrc || undefined}
         onEnded={() => setIsPreviewPlaying(false)}
         onPause={() => setIsPreviewPlaying(false)}
       />
@@ -629,7 +659,7 @@ export const AdminAudioStudio: React.FC<AdminAudioStudioProps> = ({ showToast })
               </div>
               <div className="font-bold text-sm truncate">{draft.activeTrackTitle || 'Default Track'}</div>
               <audio
-                src={draft.activeAudioUrl || undefined}
+                src={playablePreviewSrc || undefined}
                 controls
                 className="w-full h-9 rounded-lg"
               />

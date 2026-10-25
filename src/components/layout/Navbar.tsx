@@ -22,18 +22,18 @@ interface NavbarProps {
 }
 
 const TRENDING_TAGS = [
+  'Paneer Toofani',
   'Smash Burger',
   'Nashville Chicken',
   'Margherita Pizza',
   'Lava Cake',
   'Truffle Pasta',
-  'Fajita Wrap',
 ];
 
 export const Navbar: React.FC<NavbarProps> = ({ onOpenAdmin, isAdminOpen }) => {
   const { data, orders, reservations } = useRestaurant();
   const { profile, orderSettings, items, categories, openingHours } = data;
-  const { totalCount, setIsCartOpen, addToCart } = useCart();
+  const { cart, totalCount, subtotal, setIsCartOpen, addToCart } = useCart();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -375,17 +375,40 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAdmin, isAdminOpen }) => {
                       <button
                         onClick={() => {
                           addToCart(item);
-                          setSearchOpen(false);
-                          setIsCartOpen(true);
                         }}
                         className="px-3 py-1.5 rounded-full bg-[#e8281a] text-white text-xs font-semibold flex items-center gap-1 hover:bg-[#c01e12] cursor-pointer"
                       >
                         <Plus className="w-3.5 h-3.5" />
-                        <span>Add</span>
+                        <span>
+                          {cart.some((c) => c.item.id === item.id)
+                            ? `Added (${cart
+                                .filter((c) => c.item.id === item.id)
+                                .reduce((s, c) => s + c.quantity, 0)})`
+                            : 'Add'}
+                        </span>
                       </button>
                     </div>
                   ))
                 )}
+              </div>
+            )}
+
+            {totalCount > 0 && (
+              <div className="flex items-center justify-between gap-2 p-3 rounded-2xl bg-[#1a1a1a] text-white text-xs">
+                <span>
+                  🛒 <strong>{totalCount} items</strong> selected ({profile.currencySymbol}
+                  {subtotal.toFixed(2)})
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchOpen(false);
+                    setIsCartOpen(true);
+                  }}
+                  className="px-3.5 py-1.5 rounded-full bg-[#e8281a] hover:bg-[#c01e12] text-white font-bold cursor-pointer"
+                >
+                  View Cart &amp; Order →
+                </button>
               </div>
             )}
 
