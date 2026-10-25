@@ -37,6 +37,7 @@ import {
   ChatbotUnansweredQuestion,
 } from '../../../types';
 import { DEFAULT_RESTAURANT_DATA } from '../../../data/defaultRestaurantData';
+import { formatISTDateTime } from '../../../utils/indianTime';
 
 interface AdminChatbotProps {
   showToast: (msg: string, type?: string) => void;
@@ -171,11 +172,8 @@ export const AdminChatbot: React.FC<AdminChatbotProps> = ({ showToast }) => {
     key: K,
     value: ChatbotSettings[K]
   ) => {
-    setDraft(prev => {
-      const next = { ...prev, [key]: value };
-      updateChatbotSettings({ [key]: value });
-      return next;
-    });
+    setDraft(prev => ({ ...prev, [key]: value }));
+    updateChatbotSettings({ [key]: value });
   };
 
   const handleSaveAllChanges = () => {
@@ -209,19 +207,16 @@ export const AdminChatbot: React.FC<AdminChatbotProps> = ({ showToast }) => {
         const lat = pos.coords.latitude.toFixed(6);
         const lng = pos.coords.longitude.toFixed(6);
         const mapsUrl = `https://maps.google.com/?q=${lat},${lng}`;
-        setDraft(prev => {
-          const next = {
-            ...prev,
-            customLatitude: lat,
-            customLongitude: lng,
-            customLocationMapsUrl: mapsUrl,
-          };
-          updateChatbotSettings({
-            customLatitude: lat,
-            customLongitude: lng,
-            customLocationMapsUrl: mapsUrl,
-          });
-          return next;
+        setDraft(prev => ({
+          ...prev,
+          customLatitude: lat,
+          customLongitude: lng,
+          customLocationMapsUrl: mapsUrl,
+        }));
+        updateChatbotSettings({
+          customLatitude: lat,
+          customLongitude: lng,
+          customLocationMapsUrl: mapsUrl,
         });
         showToast(`GPS Pin updated (${lat}, ${lng})!`, 'success');
       },
@@ -1791,7 +1786,7 @@ export const AdminChatbot: React.FC<AdminChatbotProps> = ({ showToast }) => {
                         </span>
                         <span className="text-[11px] font-semibold text-[#7a6e65]">
                           Asked {item.count}x • Lang: {item.language.toUpperCase()} •{' '}
-                          {new Date(item.askedAt).toLocaleString()}
+                          {formatISTDateTime(item.askedAt)}
                         </span>
                       </div>
                       <p className="text-sm font-bold text-[#1a1a1a]">
@@ -2024,7 +2019,7 @@ export const AdminChatbot: React.FC<AdminChatbotProps> = ({ showToast }) => {
 
                         <div className="flex items-center gap-1 text-[10px] opacity-70 pt-0.5">
                           <Clock className="w-3 h-3" />
-                          <span>{new Date(sess.lastMessageAt).toLocaleString()}</span>
+                          <span>{formatISTDateTime(sess.lastMessageAt)}</span>
                         </div>
                       </div>
                     );
@@ -2041,7 +2036,7 @@ export const AdminChatbot: React.FC<AdminChatbotProps> = ({ showToast }) => {
                             Transcript: {selectedSession.customerLabel}
                           </h5>
                           <p className="text-[11px] text-[#7a6e65]">
-                            Started: {new Date(selectedSession.startedAt).toLocaleString()}
+                            Started: {formatISTDateTime(selectedSession.startedAt)}
                           </p>
                         </div>
                       </div>

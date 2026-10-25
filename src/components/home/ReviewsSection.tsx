@@ -36,7 +36,7 @@ export const ReviewsSection: React.FC = () => {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
             <div className="text-center mb-12">
               <span className="slbl" style={{ color: '#a5d6bc' }}>
-                Opening Hours
+                Opening Hours (IST)
               </span>
               <h2 className="stitle" style={{ color: '#ffffff' }}>
                 We&apos;re Open <span style={{ color: '#f6a623' }}>For You</span>

@@ -15,6 +15,7 @@ import {
 import { useRestaurant } from '../../context/RestaurantContext';
 import { DEFAULT_RESTAURANT_DATA } from '../../data/defaultRestaurantData';
 import { BlogPostItem } from '../../types';
+import { getISTDateInputString } from '../../utils/indianTime';
 
 export const ReservationAndBlogSection: React.FC = () => {
   const { data, addReservation } = useRestaurant();
@@ -33,10 +34,7 @@ export const ReservationAndBlogSection: React.FC = () => {
   const [guestEmail, setGuestEmail] = useState('');
   const [guestPhone, setGuestPhone] = useState('');
   const [partySize, setPartySize] = useState('2 People');
-  const [resDate, setResDate] = useState(() => {
-    const tomorrow = new Date(Date.now() + 86400000);
-    return tomorrow.toISOString().split('T')[0];
-  });
+  const [resDate, setResDate] = useState(() => getISTDateInputString(1));
   const [resTime, setResTime] = useState('07:00 PM');
   const [specialRequest, setSpecialRequest] = useState('');
   const [resSuccess, setResSuccess] = useState(false);
@@ -118,10 +116,10 @@ export const ReservationAndBlogSection: React.FC = () => {
                     </div>
                     <div>
                       <span className="text-xs text-[#999999] uppercase tracking-wider font-semibold block">
-                        Dining Hours
+                        Dining Hours (IST)
                       </span>
                       <span className="font-bold text-base text-[#1a1a1a]">
-                        {openingHours.topbarHoursText || 'Wed - Sun: 09:00 AM - 11:00 PM'}
+                        {openingHours.topbarHoursText || 'Wed - Sun: 09:00 AM - 11:00 PM (IST)'}
                       </span>
                     </div>
                   </div>
@@ -188,7 +186,7 @@ export const ReservationAndBlogSection: React.FC = () => {
                           required
                           value={guestPhone}
                           onChange={(e) => setGuestPhone(e.target.value)}
-                          placeholder="+1 (555) 000-0000"
+                          placeholder="+91 98765 43210"
                           className="w-full border-2 border-[#eeeeee] focus:border-[#e8281a] rounded-[9px] px-4 py-2.5 text-sm text-[#1a1a1a] outline-none transition-colors"
                         />
                       </div>
@@ -227,7 +225,7 @@ export const ReservationAndBlogSection: React.FC = () => {
 
                       <div>
                         <label className="text-[13px] font-semibold text-[#1a1a1a] mb-1.5 block">
-                          Preferred Time
+                          Preferred Time (IST)
                         </label>
                         <select
                           value={resTime}

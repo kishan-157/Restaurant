@@ -191,6 +191,9 @@ class DataProviderService {
           contactMessages: Array.isArray(parsed.contactMessages) ? parsed.contactMessages : [],
           partyInquiries: Array.isArray(parsed.partyInquiries) ? parsed.partyInquiries : [],
         };
+
+        // Auto-migrate legacy USD ($) cached data to Indian Rupees (₹ / INR) & IST
+        this.migrateLegacyUsdToInr();
       } catch {
         this.memoryData = JSON.parse(JSON.stringify(DEFAULT_RESTAURANT_DATA));
       }
@@ -266,6 +269,139 @@ class DataProviderService {
   }
 
   // --- LOCAL STORAGE HELPERS ---
+  private migrateLegacyUsdToInr() {
+    let changed = false;
+    const p = this.memoryData.profile;
+
+    if (p.currencySymbol === '$' || p.currencyCode === 'USD' || !p.currencySymbol) {
+      p.currencySymbol = '₹';
+      p.currencyCode = 'INR';
+      changed = true;
+    }
+
+    if (p.priceRange?.includes('$')) {
+      p.priceRange = '₹200 - ₹600 per person';
+      changed = true;
+    }
+
+    if (p.phone === '+1 (800) 123-4567' || p.phone === '+1 (555) 234-5678') {
+      p.phone = '+91 98765 43210';
+      p.whatsappNumber = '919876543210';
+      p.city = 'Mumbai, MH';
+      p.postalCode = '400001';
+      changed = true;
+    }
+
+    // Upgrade openingHours notice & IST label
+    if (this.memoryData.openingHours) {
+      if (this.memoryData.openingHours.holidayNotice?.includes('$25')) {
+        this.memoryData.openingHours.holidayNotice =
+          'Free Express Delivery on all orders over ₹499! Hot food delivered in 20–25 minutes (IST).';
+        changed = true;
+      }
+      if (
+        this.memoryData.openingHours.topbarHoursText &&
+        !this.memoryData.openingHours.topbarHoursText.includes('IST')
+      ) {
+        this.memoryData.openingHours.topbarHoursText = `${this.memoryData.openingHours.topbarHoursText} (IST)`;
+        changed = true;
+      }
+    }
+
+    // Upgrade orderSettings if still on legacy USD values (2.99 / 10 / 25)
+    const os = this.memoryData.orderSettings;
+    if (os && (os.deliveryFee < 10 || os.freeDeliveryThreshold <= 30)) {
+      os.deliveryFee = 40;
+      os.minOrderAmount = 199;
+      os.freeDeliveryThreshold = 499;
+      if (os.swiggyUrl?.includes('ubereats')) os.swiggyUrl = 'https://www.swiggy.com';
+      if (os.zomatoUrl?.includes('doordash')) os.zomatoUrl = 'https://www.zomato.com';
+      changed = true;
+    }
+
+    // Upgrade menu items if they still have legacy USD prices (< 45)
+    const defaultItemsMap = new Map(DEFAULT_RESTAURANT_DATA.items.map((i) => [i.id, i]));
+    this.memoryData.items = this.memoryData.items.map((item) => {
+      if (item.price < 45) {
+        changed = true;
+        const def = defaultItemsMap.get(item.id);
+        if (def) {
+          return {
+            ...item,
+            price: def.price,
+            oldPrice: def.oldPrice,
+          };
+        }
+        return {
+          ...item,
+          price: Math.round(item.price * 20),
+          oldPrice: item.oldPrice ? Math.round(item.oldPrice * 20) : undefined,
+        };
+      }
+      return item;
+    });
+
+    // Upgrade variants if they still have legacy USD prices (< 45)
+    const defaultVariantsMap = new Map(DEFAULT_RESTAURANT_DATA.variants.map((v) => [v.id, v]));
+    this.memoryData.variants = this.memoryData.variants.map((v) => {
+      if (v.price < 45) {
+        changed = true;
+        const def = defaultVariantsMap.get(v.id);
+        return {
+          ...v,
+          price: def ? def.price : Math.round(v.price * 20),
+        };
+      }
+      return v;
+    });
+
+    // Upgrade addonGroups if options still have legacy USD prices (< 15)
+    if (Array.isArray(this.memoryData.addonGroups)) {
+      this.memoryData.addonGroups = this.memoryData.addonGroups.map((grp) => ({
+        ...grp,
+        options: grp.options.map((opt) => {
+          if (opt.price < 15) {
+            changed = true;
+            const converted = opt.price <= 1.5 ? 40 : opt.price <= 2.5 ? 50 : 99;
+            return { ...opt, price: converted };
+          }
+          return opt;
+        }),
+      }));
+    }
+
+    // Upgrade offers & specialDeal if they still contain '$'
+    if (Array.isArray(this.memoryData.offers)) {
+      this.memoryData.offers = this.memoryData.offers.map((off) => {
+        if (
+          off.description?.includes('$25') ||
+          off.validUntil?.includes('$25') ||
+          off.code === 'FREEDEL25'
+        ) {
+          changed = true;
+          return {
+            ...off,
+            code: 'FREEDEL499',
+            description: 'Free priority delivery across the city on all orders over ₹499.',
+            validUntil: 'Orders Over ₹499',
+          };
+        }
+        return off;
+      });
+    }
+
+    const sd = this.memoryData.sectionContents?.specialDeal;
+    if (sd && (sd.originalPrice?.includes('$') || sd.dealPrice?.includes('$'))) {
+      sd.originalPrice = '₹499';
+      sd.dealPrice = '₹349';
+      changed = true;
+    }
+
+    if (changed) {
+      this.saveToLocalStorage();
+    }
+  }
+
   private saveToLocalStorage() {
     this.lastLocalMutationAt = Date.now();
     safeStorage.setItem(STORAGE_KEY, JSON.stringify(this.memoryData));

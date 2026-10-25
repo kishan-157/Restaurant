@@ -44,9 +44,12 @@ export const OffersSection: React.FC = () => {
   const activeOffers = data.offers.filter((o) => o.isActive);
 
   const handleCopy = (code: string) => {
-    navigator.clipboard.writeText(code);
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(code).catch(() => {});
+    }
+    window.dispatchEvent(new CustomEvent('sarab:apply-coupon', { detail: code.toUpperCase() }));
     setCopiedCode(code);
-    setTimeout(() => setCopiedCode(null), 2000);
+    setTimeout(() => setCopiedCode(null), 2500);
   };
 
   return (
@@ -137,10 +140,10 @@ export const OffersSection: React.FC = () => {
             <div className="relative inline-block max-w-full">
               <div className="absolute top-2 left-2 sm:top-4 sm:left-4 z-20 bg-[#e8281a] text-white w-[76px] h-[76px] sm:w-[88px] sm:h-[88px] rounded-full flex flex-col items-center justify-center text-center shadow-[0_8px_24px_rgba(232,40,26,0.5)] animate-pulse-badge">
                 <span className="text-[10px] sm:text-[11px] line-through opacity-75">
-                  {deal.originalPrice || '$24.99'}
+                  {deal.originalPrice || '₹499'}
                 </span>
                 <span className="text-lg sm:text-xl font-black leading-none">
-                  {deal.dealPrice || '$17.49'}
+                  {deal.dealPrice || '₹349'}
                 </span>
               </div>
 

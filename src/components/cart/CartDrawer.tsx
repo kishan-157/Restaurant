@@ -42,14 +42,92 @@ export const CartDrawer: React.FC = () => {
   const [lastPlacedOrder, setLastPlacedOrder] = useState<Order | null>(null);
   const [showAdminSuccessModal, setShowAdminSuccessModal] = useState(false);
 
+  // Promo / Coupon Code State in Cart Drawer
+  const [couponInput, setCouponInput] = useState('');
+  const [appliedCouponCode, setAppliedCouponCode] = useState<string | null>(null);
+  const [couponNotice, setCouponNotice] = useState('');
+
+  React.useEffect(() => {
+    const onApplyCoupon = (e: Event) => {
+      const code = (e as CustomEvent<string>).detail;
+      if (code) {
+        setCouponInput(code.toUpperCase());
+        setAppliedCouponCode(code.toUpperCase());
+        setCouponNotice(`✅ Coupon "${code.toUpperCase()}" applied to your order!`);
+      }
+    };
+    window.addEventListener('sarab:apply-coupon', onApplyCoupon);
+    return () => window.removeEventListener('sarab:apply-coupon', onApplyCoupon);
+  }, []);
+
   if (!isCartOpen) return null;
+
+  const activeOffers = data.offers.filter((o) => o.isActive);
+  const matchedOffer = appliedCouponCode
+    ? data.offers.find((o) => o.code.toUpperCase() === appliedCouponCode.toUpperCase())
+    : undefined;
+
+  const computeCartCouponDiscount = (): { discountAmount: number; freeDelByCoupon: boolean } => {
+    if (!appliedCouponCode || subtotal <= 0) {
+      return { discountAmount: 0, freeDelByCoupon: false };
+    }
+    const code = appliedCouponCode.toUpperCase();
+    const badgeAndTitle = `${matchedOffer?.discountBadge || ''} ${matchedOffer?.title || ''} ${code}`.toUpperCase();
+
+    if (badgeAndTitle.includes('FREE DEL') || code.includes('FREEDEL')) {
+      return { discountAmount: 0, freeDelByCoupon: true };
+    }
+
+    const percentMatch = badgeAndTitle.match(/(\d+)\s*%/);
+    if (percentMatch) {
+      const pct = Math.min(90, Math.max(1, parseInt(percentMatch[1], 10)));
+      return {
+        discountAmount: Math.round((subtotal * pct) / 100),
+        freeDelByCoupon: false,
+      };
+    }
+
+    const flatMatch = badgeAndTitle.match(/(?:₹|RS\.?|INR|FLAT\s*)(\d+)/i);
+    if (flatMatch) {
+      const flatAmt = parseInt(flatMatch[1], 10);
+      return {
+        discountAmount: Math.min(subtotal, flatAmt),
+        freeDelByCoupon: false,
+      };
+    }
+
+    return {
+      discountAmount: Math.round(subtotal * 0.15),
+      freeDelByCoupon: false,
+    };
+  };
+
+  const { discountAmount: couponDiscount, freeDelByCoupon } = computeCartCouponDiscount();
+
+  const handleApplyCartCoupon = (rawCode?: string) => {
+    const code = (rawCode ?? couponInput).trim().toUpperCase();
+    if (!code) {
+      setCouponNotice('Please enter a coupon code.');
+      return;
+    }
+    const found = data.offers.find((o) => o.code.toUpperCase() === code && o.isActive);
+    if (found) {
+      setAppliedCouponCode(found.code.toUpperCase());
+      setCouponInput(found.code.toUpperCase());
+      setCouponNotice(`✅ Applied "${found.code}" (${found.discountBadge})!`);
+    } else {
+      setCouponNotice(
+        `❌ Invalid code. Try: ${activeOffers.map((o) => o.code).join(', ') || 'SARAB15'}`
+      );
+    }
+  };
 
   // Delivery fee calculation
   const isDelivery = orderType === 'delivery';
   const freeThreshold = orderSettings.freeDeliveryThreshold;
-  const isFreeDelivery = isDelivery && subtotal >= freeThreshold;
+  const isFreeDelivery = isDelivery && (subtotal >= freeThreshold || freeDelByCoupon);
   const deliveryFee = isDelivery ? (isFreeDelivery ? 0 : orderSettings.deliveryFee) : 0;
-  const grandTotal = subtotal + deliveryFee;
+  const grandTotal = Math.max(0, subtotal - couponDiscount + deliveryFee);
 
   const amountToFreeDelivery = freeThreshold > subtotal ? freeThreshold - subtotal : 0;
   const isBelowMinOrder = isDelivery && subtotal < orderSettings.minOrderAmount;
@@ -109,6 +187,12 @@ export const CartDrawer: React.FC = () => {
     }));
   };
 
+  const couponTag = appliedCouponCode
+    ? ` [Coupon: ${appliedCouponCode}${
+        couponDiscount > 0 ? ` -${profile.currencySymbol}${couponDiscount}` : ' FREE DEL'
+      }]`
+    : '';
+
   // Flow A: Order via WhatsApp (Logs to Admin Panel & opens WhatsApp)
   const handleWhatsAppCheckout = () => {
     if (!validateCheckout()) return;
@@ -119,7 +203,7 @@ export const CartDrawer: React.FC = () => {
       orderType,
       deliveryAddress: deliveryAddress.trim(),
       deliveryLandmark: deliveryLandmark.trim(),
-      specialInstructions: specialInstructions.trim(),
+      specialInstructions: `${specialInstructions.trim()}${couponTag}`.trim(),
     };
 
     // 1. Log order to Admin Panel
@@ -129,7 +213,7 @@ export const CartDrawer: React.FC = () => {
       orderType,
       deliveryAddress: deliveryAddress.trim(),
       deliveryLandmark: deliveryLandmark.trim(),
-      specialInstructions: specialInstructions.trim(),
+      specialInstructions: `${specialInstructions.trim()}${couponTag}`.trim(),
       items: buildOrderItemSummaries(),
       subtotal,
       deliveryFee,
@@ -182,7 +266,7 @@ export const CartDrawer: React.FC = () => {
       orderType,
       deliveryAddress: deliveryAddress.trim(),
       deliveryLandmark: deliveryLandmark.trim(),
-      specialInstructions: specialInstructions.trim(),
+      specialInstructions: `${specialInstructions.trim()}${couponTag}`.trim(),
       items: buildOrderItemSummaries(),
       subtotal,
       deliveryFee,
@@ -360,6 +444,68 @@ export const CartDrawer: React.FC = () => {
                   ))}
                 </div>
 
+                {/* Promo / Coupon Code Bar */}
+                <div className="pt-3 border-t border-neutral-200 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold uppercase tracking-wider text-neutral-500">
+                      🏷️ Promo / Coupon Code
+                    </label>
+                    {appliedCouponCode && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAppliedCouponCode(null);
+                          setCouponInput('');
+                          setCouponNotice('');
+                        }}
+                        className="text-xs font-semibold text-red-600 hover:underline cursor-pointer"
+                      >
+                        Remove ({appliedCouponCode})
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={couponInput}
+                      onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                      placeholder="Enter code (e.g. SMASH30, SARAB15)"
+                      className="flex-1 px-3 py-2 text-xs font-mono uppercase border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-600"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleApplyCartCoupon()}
+                      className="px-4 py-2 bg-neutral-900 hover:bg-amber-700 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+                    >
+                      Apply
+                    </button>
+                  </div>
+
+                  {activeOffers.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pt-0.5">
+                      {activeOffers.map((off) => (
+                        <button
+                          key={off.id}
+                          type="button"
+                          onClick={() => handleApplyCartCoupon(off.code)}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors cursor-pointer ${
+                            appliedCouponCode === off.code.toUpperCase()
+                              ? 'bg-emerald-600 text-white border-emerald-600'
+                              : 'bg-amber-50/70 text-amber-900 border-amber-200 hover:bg-amber-100'
+                          }`}
+                        >
+                          🏷️ {off.code} ({off.discountBadge})
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {couponNotice && (
+                    <p className="text-xs font-medium text-emerald-700">{couponNotice}</p>
+                  )}
+                </div>
+
                 {/* Order Type Toggle */}
                 <div className="pt-4 border-t border-neutral-200 space-y-2">
                   <label className="text-xs font-bold uppercase tracking-wider text-neutral-500">
@@ -501,6 +647,15 @@ export const CartDrawer: React.FC = () => {
                     {subtotal.toFixed(2)}
                   </span>
                 </div>
+                {couponDiscount > 0 && (
+                  <div className="flex justify-between text-emerald-700 font-semibold">
+                    <span>Coupon Discount ({appliedCouponCode})</span>
+                    <span className="tabular-nums">
+                      -{profile.currencySymbol}
+                      {couponDiscount.toFixed(2)}
+                    </span>
+                  </div>
+                )}
                 {isDelivery && (
                   <div className="flex justify-between">
                     <span>Delivery Fee</span>

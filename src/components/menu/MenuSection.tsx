@@ -554,24 +554,25 @@ export const MenuSection: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-2 flex-1 min-w-[180px]">
-                  {variants.some((v) => v.menuItemId === detailItem.id && v.isAvailable) && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const itemToCustomize = detailItem;
-                        setDetailItem(null);
-                        setCustomizingItem(itemToCustomize);
-                      }}
-                      className="px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-full border border-[#e8281a] text-[#e8281a] hover:bg-[#fff8f0] text-xs font-semibold transition-colors cursor-pointer"
-                    >
-                      Options
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const itemToCustomize = detailItem;
+                      setDetailItem(null);
+                      setCustomizingItem(itemToCustomize);
+                    }}
+                    className="px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-full border border-[#e8281a] text-[#e8281a] hover:bg-[#fff8f0] text-xs font-semibold transition-colors cursor-pointer"
+                  >
+                    ⚙️ Options
+                  </button>
 
                   <button
                     type="button"
                     onClick={() => {
-                      addToCart(detailItem, undefined, [], detailQty);
+                      const itemVariants = variants.filter(
+                        (v) => v.menuItemId === detailItem.id && v.isAvailable
+                      );
+                      addToCart(detailItem, itemVariants[0], [], detailQty);
                       triggerAddedFeedback(detailItem.name);
                       setDetailItem(null);
                     }}

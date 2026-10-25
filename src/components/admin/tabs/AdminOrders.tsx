@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useRestaurant } from '../../../context/RestaurantContext';
 import { OrderStatus } from '../../../types';
+import { formatISTDateTime } from '../../../utils/indianTime';
 
 interface AdminOrdersProps {
   showToast?: (msg: string) => void;
@@ -357,7 +358,7 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({ showToast }) => {
                       </span>
                       <span className="inline-flex items-center gap-1 text-xs text-[#7a6e65]">
                         <Clock className="w-3.5 h-3.5" />
-                        {new Date(order.createdAt).toLocaleString()}
+                        {formatISTDateTime(order.createdAt)}
                       </span>
                     </div>
 
@@ -638,7 +639,7 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({ showToast }) => {
                           </span>
                         )}
                         <span className="text-xs text-[#7a6e65]">
-                          • {new Date(msg.createdAt).toLocaleString()}
+                          • {formatISTDateTime(msg.createdAt)}
                         </span>
                       </div>
                       <div className="text-xs text-[#5a524c] mt-0.5">Email: {msg.email}</div>

@@ -34,8 +34,12 @@ import {
   ChatbotUnansweredQuestion,
   MenuItem,
   OrderType,
+  ItemVariant,
+  AddonOption,
+  SpecialOffer,
 } from '../../types';
 import { DEFAULT_RESTAURANT_DATA } from '../../data/defaultRestaurantData';
+import { formatISTTime, getISTDateInputString, getISTDayName } from '../../utils/indianTime';
 
 type ChatLang = 'en' | 'hi' | 'gu';
 
@@ -45,6 +49,7 @@ interface ChatMessage {
   text: string;
   timestamp: string;
   items?: MenuItem[];
+  offers?: SpecialOffer[];
   showCategoryBrowser?: boolean;
   selectedCategoryId?: string;
   orderId?: string; // renders a live-updating Order Status Card from context
@@ -158,6 +163,17 @@ export const ChatbotWidget: React.FC = () => {
   const [isLocating, setIsLocating] = useState(false);
   const [sharedGpsUrl, setSharedGpsUrl] = useState<string>('');
 
+  // Inline Dish Options Customizer State (for selecting Variants & Add-ons inside Chatbot!)
+  const [customizingDishId, setCustomizingDishId] = useState<string | null>(null);
+  const [selectedVariantByDish, setSelectedVariantByDish] = useState<Record<string, string>>({});
+  const [selectedAddonsByDish, setSelectedAddonsByDish] = useState<Record<string, string[]>>({});
+  const [customNoteByDish, setCustomNoteByDish] = useState<Record<string, string>>({});
+
+  // Promo / Coupon Code State inside Chatbot Order Form
+  const [couponInput, setCouponInput] = useState('');
+  const [appliedCouponCode, setAppliedCouponCode] = useState<string | null>(null);
+  const [couponFeedback, setCouponFeedback] = useState<string>('');
+
   // Stable Session ID for Admin Customer Chat History & Analytics
   const sessionIdRef = useRef<string>(`sess-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`);
   const sessionStartedAtRef = useRef<string>(new Date().toISOString());
@@ -184,10 +200,10 @@ export const ChatbotWidget: React.FC = () => {
   const [resName, setResName] = useState('');
   const [resPhone, setResPhone] = useState('');
   const [resPartySize, setResPartySize] = useState('2 People');
-  const [resDate, setResDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [resDate, setResDate] = useState(() => getISTDateInputString());
   const [resTime, setResTime] = useState('07:30 PM');
 
-  const currency = data.profile.currencySymbol || '$';
+  const currency = data.profile.currencySymbol || '₹';
   const primaryColor = settings.useBrandColor
     ? data.profile.primaryColor || '#e8281a'
     : settings.customColor || '#e8281a';
@@ -247,7 +263,8 @@ export const ChatbotWidget: React.FC = () => {
       id: 'welcome-msg',
       sender: 'bot',
       text: getWelcomeText(settings.defaultLanguage || 'en'),
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      timestamp: formatISTTime(),
+      showCategoryBrowser: true,
     },
   ]);
 
@@ -259,6 +276,20 @@ export const ChatbotWidget: React.FC = () => {
     }
   }, [messages, isOpen, activeMode]);
 
+  // Listen for global coupon application event from OffersSection
+  useEffect(() => {
+    const onApplyCoupon = (e: Event) => {
+      const code = (e as CustomEvent<string>).detail;
+      if (code) {
+        setCouponInput(code.toUpperCase());
+        setAppliedCouponCode(code.toUpperCase());
+        setCouponFeedback(`Coupon ${code.toUpperCase()} applied!`);
+      }
+    };
+    window.addEventListener('sarab:apply-coupon', onApplyCoupon);
+    return () => window.removeEventListener('sarab:apply-coupon', onApplyCoupon);
+  }, []);
+
   // Keep welcome message synced when admin updates welcome text or language changes
   useEffect(() => {
     setMessages(prev => {
@@ -267,6 +298,7 @@ export const ChatbotWidget: React.FC = () => {
           {
             ...prev[0],
             text: getWelcomeText(lang),
+            showCategoryBrowser: true,
           },
         ];
       }
@@ -414,7 +446,7 @@ export const ChatbotWidget: React.FC = () => {
 
   const handleLanguageChange = (newLang: ChatLang) => {
     setLang(newLang);
-    const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const now = formatISTTime();
     setMessages(prev => [
       ...prev,
       {
@@ -422,12 +454,14 @@ export const ChatbotWidget: React.FC = () => {
         sender: 'bot',
         text: getWelcomeText(newLang),
         timestamp: now,
+        showCategoryBrowser: true,
       },
     ]);
   };
 
   const handleResetChat = () => {
     setActiveMode('chat');
+    setCustomizingDishId(null);
     sessionIdRef.current = `sess-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
     sessionStartedAtRef.current = new Date().toISOString();
     setMessages([
@@ -435,18 +469,156 @@ export const ChatbotWidget: React.FC = () => {
         id: 'welcome-msg',
         sender: 'bot',
         text: getWelcomeText(lang),
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        timestamp: formatISTTime(),
+        showCategoryBrowser: true,
       },
     ]);
   };
 
+  // --- Dish Variants & Add-ons Helpers for Chatbot ---
+  const getDishVariants = (dishId: string): ItemVariant[] => {
+    return data.variants.filter(v => v.menuItemId === dishId && v.isAvailable);
+  };
+
+  const getDishAddonGroups = (dish: MenuItem) => {
+    const groups =
+      dish.addonGroupIds && dish.addonGroupIds.length > 0
+        ? data.addonGroups.filter(g => dish.addonGroupIds!.includes(g.id))
+        : dish.hasAddons
+        ? data.addonGroups
+        : [];
+    return groups
+      .map(group => ({
+        group,
+        options: (group.options || []).filter(o => o.isAvailable !== false),
+      }))
+      .filter(g => g.options.length > 0);
+  };
+
+  const getAllAvailableAddonOptions = (): AddonOption[] => {
+    return data.addonGroups.flatMap(g => g.options || []);
+  };
+
+  const dishHasOptions = (_dish: MenuItem): boolean => {
+    // Allow every dish in Chatbot to open ⚙️ Options (for Variants, Add-ons, or Custom Cooking Note)
+    return true;
+  };
+
+  const toggleDishOptionsPanel = (dish: MenuItem) => {
+    if (customizingDishId === dish.id) {
+      setCustomizingDishId(null);
+      return;
+    }
+    const itemVariants = getDishVariants(dish.id);
+    if (itemVariants.length > 0 && !selectedVariantByDish[dish.id]) {
+      setSelectedVariantByDish(prev => ({ ...prev, [dish.id]: itemVariants[0].id }));
+    }
+    setCustomizingDishId(dish.id);
+  };
+
+  const handleToggleAddonForDish = (dishId: string, addonId: string) => {
+    setSelectedAddonsByDish(prev => {
+      const current = prev[dishId] || [];
+      const exists = current.includes(addonId);
+      return {
+        ...prev,
+        [dishId]: exists ? current.filter(id => id !== addonId) : [...current, addonId],
+      };
+    });
+  };
+
+  const handleAddCustomizedDish = (dish: MenuItem) => {
+    const itemVariants = getDishVariants(dish.id);
+    const chosenVariantId = selectedVariantByDish[dish.id];
+    const chosenVariant =
+      itemVariants.find(v => v.id === chosenVariantId) || itemVariants[0] || undefined;
+
+    const chosenAddonIds = selectedAddonsByDish[dish.id] || [];
+    const allAddons = getAllAvailableAddonOptions();
+    const chosenAddons: AddonOption[] = allAddons.filter(o =>
+      chosenAddonIds.includes(o.id)
+    );
+    const note = (customNoteByDish[dish.id] || '').trim();
+
+    addToCart(dish, chosenVariant, chosenAddons, 1, note);
+    setIsCartOpen(false);
+    setCustomizingDishId(null);
+    setAddedItemIds(prev => ({ ...prev, [dish.id]: true }));
+    setTimeout(() => {
+      setAddedItemIds(prev => ({ ...prev, [dish.id]: false }));
+    }, 1200);
+  };
+
   const handleQuickAddItem = (item: MenuItem) => {
-    addToCart(item, undefined, [], 1, '');
+    const itemVariants = getDishVariants(item.id);
+    const defaultVariant = itemVariants.length > 0 ? itemVariants[0] : undefined;
+    addToCart(item, defaultVariant, [], 1, '');
     setIsCartOpen(false);
     setAddedItemIds(prev => ({ ...prev, [item.id]: true }));
     setTimeout(() => {
       setAddedItemIds(prev => ({ ...prev, [item.id]: false }));
     }, 1200);
+  };
+
+  // --- Promo / Coupon Calculation inside Chatbot ---
+  const activeOffers = data.offers.filter(o => o.isActive);
+  const matchedOffer = appliedCouponCode
+    ? data.offers.find(o => o.code.toUpperCase() === appliedCouponCode.toUpperCase())
+    : undefined;
+
+  const calculateCouponDiscount = (): { discountAmount: number; freeDeliveryByCoupon: boolean } => {
+    if (!appliedCouponCode || subtotal <= 0) {
+      return { discountAmount: 0, freeDeliveryByCoupon: false };
+    }
+    const code = appliedCouponCode.toUpperCase();
+    const badgeAndTitle = `${matchedOffer?.discountBadge || ''} ${matchedOffer?.title || ''} ${code}`.toUpperCase();
+
+    if (badgeAndTitle.includes('FREE DEL') || code.includes('FREEDEL')) {
+      return { discountAmount: 0, freeDeliveryByCoupon: true };
+    }
+
+    const percentMatch = badgeAndTitle.match(/(\d+)\s*%/);
+    if (percentMatch) {
+      const pct = Math.min(90, Math.max(1, parseInt(percentMatch[1], 10)));
+      return {
+        discountAmount: Math.round((subtotal * pct) / 100),
+        freeDeliveryByCoupon: false,
+      };
+    }
+
+    const flatMatch = badgeAndTitle.match(/(?:₹|RS\.?|INR|FLAT\s*)(\d+)/i);
+    if (flatMatch) {
+      const flatAmt = parseInt(flatMatch[1], 10);
+      return {
+        discountAmount: Math.min(subtotal, flatAmt),
+        freeDeliveryByCoupon: false,
+      };
+    }
+
+    // Default 15% discount if custom offer has no numeric badge
+    return {
+      discountAmount: Math.round(subtotal * 0.15),
+      freeDeliveryByCoupon: false,
+    };
+  };
+
+  const { discountAmount: chatCouponDiscount, freeDeliveryByCoupon } = calculateCouponDiscount();
+
+  const handleApplyCouponInChat = (rawCode?: string) => {
+    const code = (rawCode ?? couponInput).trim().toUpperCase();
+    if (!code) {
+      setCouponFeedback('Please enter a coupon code.');
+      return;
+    }
+    const found = data.offers.find(o => o.code.toUpperCase() === code && o.isActive);
+    if (found) {
+      setAppliedCouponCode(found.code.toUpperCase());
+      setCouponInput(found.code.toUpperCase());
+      setCouponFeedback(`✅ Applied "${found.code}" (${found.discountBadge})!`);
+      window.dispatchEvent(new CustomEvent('sarab:apply-coupon', { detail: found.code.toUpperCase() }));
+    } else {
+      setCouponFeedback(`❌ Invalid coupon. Try: ${activeOffers.map(o => o.code).join(', ') || 'SARAB15'}`);
+    }
   };
 
   // Direct Dish Link Handler: Opens the dish directly in the website Menu section
@@ -462,7 +634,8 @@ export const ChatbotWidget: React.FC = () => {
   const handleDirectOrderDishInChat = (dish: MenuItem) => {
     const alreadyInCart = cart.some(c => c.item.id === dish.id);
     if (!alreadyInCart) {
-      addToCart(dish, undefined, [], 1, '');
+      const itemVariants = getDishVariants(dish.id);
+      addToCart(dish, itemVariants[0], [], 1, '');
     }
     setIsCartOpen(false);
     setActiveMode('order_form');
@@ -480,7 +653,7 @@ export const ChatbotWidget: React.FC = () => {
         ? availableItems
         : availableItems.filter(i => i.categoryId === categoryId);
     const catTitle = matchedCat ? matchedCat.name : 'All Menu Categories';
-    const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const now = formatISTTime();
 
     const userMsg: ChatMessage = {
       id: `user-cat-${Date.now()}`,
@@ -494,10 +667,10 @@ export const ChatbotWidget: React.FC = () => {
       sender: 'bot',
       text:
         lang === 'hi'
-          ? `🍴 "${catTitle}" कैटेगरी में ${catItems.length} डिश उपलब्ध हैं। आप "+ Add" दबाकर एक से ज़्यादा डिश चुन सकते हैं और अंत में ऑर्डर प्लेस कर सकते हैं:`
+          ? `🍴 "${catTitle}" कैटेगरी में ${catItems.length} डिश उपलब्ध हैं। आप "+ Add" या "⚙️ Options" दबाकर मनपसंद साइज/टॉपिंग के साथ एक से ज़्यादा डिश चुन सकते हैं और अंत में ऑर्डर प्लेस कर सकते हैं:`
           : lang === 'gu'
-          ? `🍴 "${catTitle}" કેટેગરીમાં ${catItems.length} વાનગીઓ ઉપલબ્ધ છે. તમે "+ Add" દબાવીને એકથી વધુ વાનગીઓ પસંદ કરી શકો છો:`
-          : `🍴 Showing all ${catItems.length} dishes in "${catTitle}". Select multiple items using "+ Add" and place your order at the end:`,
+          ? `🍴 "${catTitle}" કેટેગરીમાં ${catItems.length} વાનગીઓ ઉપલબ્ધ છે. તમે "+ Add" અથવા "⚙️ Options" દબાવીને એકથી વધુ વાનગીઓ પસંદ કરી શકો છો:`
+          : `🍴 Showing all ${catItems.length} dishes in "${catTitle}". Select multiple items (or tap "⚙️ Options" for sizes & add-ons) and place your order at the end:`,
       timestamp: now,
       items: catItems,
       showCategoryBrowser: true,
@@ -535,7 +708,7 @@ export const ChatbotWidget: React.FC = () => {
               : `📍 Live GPS Location: ${mapsPin}`
           );
         } else {
-          const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const now = formatISTTime();
           const userMsg: ChatMessage = {
             id: `user-loc-${Date.now()}`,
             sender: 'user',
@@ -568,7 +741,7 @@ export const ChatbotWidget: React.FC = () => {
       () => {
         setIsLocating(false);
         if (target === 'chat') {
-          const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const now = formatISTTime();
           const botMsg: ChatMessage = {
             id: `bot-loc-info-${Date.now()}`,
             sender: 'bot',
@@ -607,13 +780,14 @@ export const ChatbotWidget: React.FC = () => {
     });
   };
 
-  // Core Knowledge Engine: Answers from Custom Admin Q&As + Live Website Data + Order Tracking
+  // Core Knowledge Engine: Answers from Forced Quick Actions + Custom Admin Q&As + Live Website Data
   const generateBotReply = (
     rawQuery: string,
     forcedAction?: ChatbotActionType
   ): {
     text: string;
     items?: MenuItem[];
+    offers?: SpecialOffer[];
     showCategoryBrowser?: boolean;
     selectedCategoryId?: string;
     orderId?: string;
@@ -626,59 +800,185 @@ export const ChatbotWidget: React.FC = () => {
     const q = rawQuery.toLowerCase().trim();
     const availableItems = data.items.filter(i => i.stockStatus === 'available');
     const activeCategories = data.categories.filter(c => c.isActive);
-    const activeOffers = data.offers.filter(o => o.isActive);
 
-    // 0. Direct Forced Actions from Quick Reply Buttons
-    if (forcedAction === 'order_now' && settings.enableOrderPlacement) {
-      setActiveMode('order_form');
-      return {
-        text:
-          lang === 'hi'
-            ? '🛒 हमने चैट में ही ऑर्डर पैनल खोल दिया है! अपनी पसंद की डिश चुनें और तुरंत ऑर्डर कन्फर्म करें।'
-            : lang === 'gu'
-            ? '🛒 અમે ચેટમાં જ ઓર્ડર પેનલ ખોલી છે! તમારી મનપસંદ વાનગી પસંદ કરો અને તરત ઓર્ડર કન્फર્મ કરો.'
-            : '🛒 I have opened the Instant Order Confirm panel below! Select your dishes, enter your details, and confirm your order right here.',
-        matchedTopic: 'In-Chat Order Form',
-      };
-    }
-
-    if (forcedAction === 'order_status' && settings.enableOrderStatusLookup) {
-      if (orders.length > 0) {
-        const latest = orders[0];
+    // 0. Direct Forced Actions from Quick Reply Buttons (Always Priority #1 when clicked!)
+    if (forcedAction && forcedAction !== 'custom_query') {
+      if (forcedAction === 'order_now' && settings.enableOrderPlacement) {
+        setActiveMode('order_form');
         return {
           text:
             lang === 'hi'
-              ? `📦 आपके हाल के ऑर्डर #${latest.orderNumber} का लाइव स्टेटस नीचे दिया गया है (अन्य ऑर्डर के लिए अपना Order ID या मोबाइल नंबर लिखें):`
+              ? '🛒 हमने चैट में ही ऑर्डर पैनल खोल दिया है! अपनी पसंद की डिश चुनें और तुरंत ऑर्डर कन्फर्म करें।'
               : lang === 'gu'
-              ? `📦 તમારા તાજેતરના ઓર્ડર #${latest.orderNumber} નું લાઈવ સ્ટેટસ નીચે મુજબ છે (અન્ય ઓર્ડર માટે Order ID કે મોબાઈલ નંબર લખો):`
-              : `📦 Here is the live status of your recent order #${latest.orderNumber} (or type any Order ID / Phone Number to check another order):`,
-          orderId: latest.id,
+              ? '🛒 અમે ચેટમાં જ ઓર્ડર પેનલ ખોલી છે! તમારી મનપસંદ વાનગી પસંદ કરો અને તરત ઓર્ડર કન્ફર્મ કરો.'
+              : '🛒 I have opened the Instant Order Confirm panel below! Select your dishes, customize options, and confirm your order right here.',
+          matchedTopic: 'In-Chat Order Form',
+        };
+      }
+
+      if (forcedAction === 'order_status' && settings.enableOrderStatusLookup) {
+        if (orders.length > 0) {
+          const latest = orders[0];
+          return {
+            text:
+              lang === 'hi'
+                ? `📦 आपके हाल के ऑर्डर #${latest.orderNumber} का लाइव स्टेटस नीचे दिया गया है (अन्य ऑर्डर के लिए अपना Order ID या मोबाइल नंबर लिखें):`
+                : lang === 'gu'
+                ? `📦 તમારા તાજેતરના ઓર્ડર #${latest.orderNumber} નું લાઈવ સ્ટેટસ નીચે મુજબ છે (અન્ય ઓર્ડર માટે Order ID કે મોબાઈલ નંબર લખો):`
+                : `📦 Here is the live status of your recent order #${latest.orderNumber} (or type any Order ID / Phone Number to check another order):`,
+            orderId: latest.id,
+            matchedTopic: 'Order Status Tracking',
+          };
+        }
+        setActiveMode('status_lookup');
+        return {
+          text:
+            lang === 'hi'
+              ? '📦 अपना लाइव ऑर्डर स्टेटस देखने के लिए अपना Order ID (जैसे ORD-1234) या 10-अंकों का मोबाइल नंबर दर्ज करें।'
+              : lang === 'gu'
+              ? '📦 તમારું લાઈવ ઓર્ડર સ્ટેટસ જોવા માટે તમારો Order ID (જેમ કે ORD-1234) અથવા મોબાઈલ નંબર લખો.'
+              : '📦 Please enter your Order ID (e.g., ORD-1234) or your Phone Number to check your live kitchen & delivery status.',
           matchedTopic: 'Order Status Tracking',
         };
       }
-      setActiveMode('status_lookup');
-      return {
-        text:
-          lang === 'hi'
-            ? '📦 अपना लाइव ऑर्डर स्टेटस देखने के लिए अपना Order ID (जैसे ORD-1234) या 10-अंकों का मोबाइल नंबर दर्ज करें।'
-            : lang === 'gu'
-            ? '📦 તમારું લાઈવ ઓર્ડર સ્ટેટસ જોવા માટે તમારો Order ID (જેમ કે ORD-1234) અથવા મોબાઈલ નંબર લખો.'
-            : '📦 Please enter your Order ID (e.g., ORD-1234) or your Phone Number to check your live kitchen & delivery status.',
-        matchedTopic: 'Order Status Tracking',
-      };
-    }
 
-    if (forcedAction === 'book_table' && settings.enableTableBooking) {
-      setActiveMode('table_booking');
-      return {
-        text:
-          lang === 'hi'
-            ? '🪑 नीचे दिए गए फॉर्म में अपनी तारीख, समय और मेहमानों की संख्या भरकर तुरंत टेबल बुक करें!'
-            : lang === 'gu'
-            ? '🪑 નીચેના ફોર્મમાં તારીખ, સમય અને મહેમાનોની સંખ્યા ભરીને તરત જ ટેબલ બુક કરો!'
-            : '🪑 Fill in your preferred date, time, and party size below to reserve your table instantly!',
-        matchedTopic: 'Table Reservation',
-      };
+      if (forcedAction === 'book_table' && settings.enableTableBooking) {
+        setActiveMode('table_booking');
+        return {
+          text:
+            lang === 'hi'
+              ? '🪑 नीचे दिए गए फॉर्म में अपनी तारीख, समय और मेहमानों की संख्या भरकर तुरंत टेबल बुक करें!'
+              : lang === 'gu'
+              ? '🪑 નીચેના ફોર્મમાં તારીખ, સમય અને મહેમાનોની સંખ્યા ભરીને તરત જ ટેબલ બુક કરો!'
+              : '🪑 Fill in your preferred date, time, and party size below to reserve your table instantly!',
+          matchedTopic: 'Table Reservation',
+        };
+      }
+
+      if (forcedAction === 'bestsellers') {
+        const best = availableItems.filter(i => i.isBestseller);
+        const list = best.map(i => `⭐ ${i.name} — ${currency}${i.price.toFixed(2)}`).join('\n');
+        return {
+          text:
+            lang === 'hi'
+              ? `🔥 हमारे सबसे लोकप्रिय बेस्टसेलर डिश (${best.length} आइटम):\n${list}\n\n👇 नीचे "+ Add" या "⚙️ Options" से अपनी पसंद के विकल्प चुनें:`
+              : lang === 'gu'
+              ? `🔥 અમારી સૌથી લોકપ્રિય બેસ્ટસેલર વાનગીઓ (${best.length} આઇટમ):\n${list}`
+              : `🔥 Our Top-Rated Best Sellers (${best.length} dishes):\n${list}\n\n👇 Tap "+ Add" or "⚙️ Options" below to select sizes & add-ons:`,
+          items: best,
+          showCategoryBrowser: true,
+          matchedTopic: 'Best Sellers',
+        };
+      }
+
+      if (forcedAction === 'veg_menu') {
+        const vegItems = availableItems.filter(i => i.isVeg);
+        const list = vegItems
+          .map(i => `🌿 ${i.name} — ${currency}${i.price.toFixed(2)}`)
+          .join('\n');
+        return {
+          text:
+            lang === 'hi'
+              ? `🌿 हमारे पास ${vegItems.length} शुद्ध शाकाहारी (Veg) डिश उपलब्ध हैं:\n${list}`
+              : lang === 'gu'
+              ? `🌿 અમારી પાસે ${vegItems.length} શુદ્ધ શાકાહારી (Veg) વાનગીઓ ઉપલબ્ધ છે:\n${list}`
+              : `🌿 All ${vegItems.length} Vegetarian dishes from our menu:\n${list}`,
+          items: vegItems,
+          showCategoryBrowser: true,
+          matchedTopic: 'Vegetarian Menu',
+        };
+      }
+
+      if (forcedAction === 'menu') {
+        const catSummary = activeCategories
+          .map(c => {
+            const count = availableItems.filter(i => i.categoryId === c.id).length;
+            return `• ${c.name} (${count} items)`;
+          })
+          .join('\n');
+        return {
+          text:
+            lang === 'hi'
+              ? `📋 ${data.profile.name} का पूरा मेनू (${availableItems.length} डिश, ${activeCategories.length} कैटेगरी):\n${catSummary}\n\n👇 नीचे किसी भी कैटेगरी पर क्लिक करें या "+ Add" / "⚙️ Options" दबाकर मनपसंद प्रोडक्ट्स चुनें:`
+              : lang === 'gu'
+              ? `📋 ${data.profile.name} નું સંપૂર્ણ મેનુ (${availableItems.length} વાનગીઓ, ${activeCategories.length} કેટેગરી):\n${catSummary}\n\n👇 નીચે કોઈપણ કેટેગરી પસંદ કરો અને "+ Add" દબાવીને વાનગીઓ ઉમેરો:`
+              : `📋 ${data.profile.name} Complete Menu (${availableItems.length} dishes across ${activeCategories.length} categories):\n${catSummary}\n\n👇 Tap any Category button below, customize sizes/toppings with "⚙️ Options", and place your order at the end!`,
+          items: availableItems,
+          showCategoryBrowser: true,
+          selectedCategoryId: 'all',
+          matchedTopic: 'Full Menu Overview',
+        };
+      }
+
+      if (forcedAction === 'offers') {
+        const deal = data.sectionContents?.specialDeal;
+        const offerLines = activeOffers.map(
+          o => `🏷️ ${o.title} (${o.discountBadge}) — Code: ${o.code}\n   ${o.description}`
+        );
+        const dealLine = deal
+          ? `🔥 ${deal.titleLine1} ${deal.titleHighlight}: ${deal.dealPrice} (was ${deal.originalPrice})`
+          : '';
+        return {
+          text:
+            [dealLine, ...offerLines].filter(Boolean).join('\n\n') ||
+            'Check our Special Offers section for today’s live combo deals!',
+          offers: activeOffers,
+          matchedTopic: 'Special Offers & Coupons',
+        };
+      }
+
+      if (forcedAction === 'hours' || forcedAction === 'location') {
+        const todayIstDay = getISTDayName();
+        const currentIstTime = formatISTTime();
+        const scheduleLines = Object.entries(data.openingHours.schedule)
+          .map(
+            ([day, s]) =>
+              `${day === todayIstDay ? '👉 ' : '• '}${day}: ${
+                s.isOpen ? `${s.openTime} - ${s.closeTime} (IST)` : 'Closed'
+              }`
+          )
+          .join('\n');
+        return {
+          text: `🕒 ${data.openingHours.topbarHoursText}\n🇮🇳 Current Indian Time: ${todayIstDay}, ${currentIstTime}\n📍 ${locationTitle}\n${locationAddress}${
+            locationLandmark ? `\n🧭 Landmark: ${locationLandmark}` : ''
+          }\n📞 Phone: ${data.profile.phone}\n\nWeekly Schedule (IST):\n${scheduleLines}`,
+          showLocationCard: true,
+          matchedTopic: 'Location & Opening Hours',
+        };
+      }
+
+      if (forcedAction === 'delivery') {
+        const os = data.orderSettings;
+        return {
+          text:
+            lang === 'hi'
+              ? `🛵 एक्सप्रेस होम डिलीवरी जानकारी:\n• डिलीवरी समय: ${os.estimatedDeliveryTime}\n• पिकअप समय: ${os.estimatedPickupTime}\n• डिलीवरी शुल्क: ${currency}${os.deliveryFee} (${currency}${os.freeDeliveryThreshold} से ऊपर के ऑर्डर पर FREE डिलीवरी!)\n• न्यूनतम ऑर्डर: ${currency}${os.minOrderAmount}`
+              : lang === 'gu'
+              ? `🛵 હોમ ડિલિવરી માહિતી:\n• ડિલિવરી સમય: ${os.estimatedDeliveryTime}\n• પિકઅપ સમય: ${os.estimatedPickupTime}\n• ડિલિવરી ચાર્જ: ${currency}${os.deliveryFee} (${currency}${os.freeDeliveryThreshold} થી વધુના ઓર્ડર પર FREE ડિલિવરી!)\n• મિનિમમ ઓર્ડર: ${currency}${os.minOrderAmount}`
+              : `🛵 Express Delivery Details:\n• Estimated Delivery: ${os.estimatedDeliveryTime}\n• Express Pickup: ${os.estimatedPickupTime}\n• Delivery Fee: ${currency}${os.deliveryFee} (FREE Delivery on orders over ${currency}${os.freeDeliveryThreshold}!)\n• Minimum Order: ${currency}${os.minOrderAmount}`,
+          matchedTopic: 'Delivery Information',
+        };
+      }
+
+      if (forcedAction === 'chefs') {
+        const chefs = data.chefs || [];
+        const lines = chefs.map(c => `👨‍🍳 ${c.name} — ${c.role}`).join('\n');
+        return {
+          text: lines || `👨‍🍳 Executive Chef: ${data.sectionContents?.about?.chefName || 'Master Chef'}`,
+          matchedTopic: 'Chefs & Kitchen Team',
+        };
+      }
+
+      if (forcedAction === 'faq') {
+        const faqText = data.faqs
+          .slice(0, 5)
+          .map(f => `Q: ${f.question}\nA: ${f.answer}`)
+          .join('\n\n');
+        return {
+          text: faqText || getFallbackText(lang),
+          matchedTopic: 'General FAQs',
+        };
+      }
     }
 
     // 1. Check if user typed an Order Number (e.g. ORD-xxxx) or asked for order status with digits
@@ -781,7 +1081,6 @@ export const ChatbotWidget: React.FC = () => {
       if (normQ.length >= 3 && normName.includes(normQ)) return true;
 
       if (meaningfulTokens.length > 0) {
-        // Check if all meaningful dish tokens match name/tags, or any strong token (>3 chars) matches name
         const allTokensInItem = meaningfulTokens.every(
           tk =>
             normName.includes(tk) ||
@@ -798,18 +1097,15 @@ export const ChatbotWidget: React.FC = () => {
     });
 
     if (
-      !forcedAction &&
       matchedDishes.length > 0 &&
       !['menu', 'full menu', 'मेनू', 'મેનુ'].includes(q)
     ) {
       const lines = matchedDishes.map(i => {
         const catObj = activeCategories.find(c => c.id === i.categoryId);
-        const itemVariants = data.variants.filter(
-          v => v.menuItemId === i.id && v.isAvailable
-        );
+        const itemVariants = getDishVariants(i.id);
         const variantStr =
           itemVariants.length > 0
-            ? ` (Options: ${itemVariants.map(v => `${v.name} ${currency}${v.price}`).join(', ')})`
+            ? ` (Sizes: ${itemVariants.map(v => `${v.name} ${currency}${v.price}`).join(', ')})`
             : '';
         return `🍽️ ${i.name} (${catObj?.name || 'Special'}) — ${currency}${i.price.toFixed(2)}${variantStr}\n   🔗 Direct Link: #dish-${i.id}`;
       });
@@ -817,10 +1113,10 @@ export const ChatbotWidget: React.FC = () => {
       return {
         text:
           lang === 'hi'
-            ? `✅ जी हाँ! आपकी पूछी गई डिश हमारे मेनू में उपलब्ध है:\n\n${lines.join('\n\n')}\n\n👇 नीचे दिए गए डायरेक्ट लिंक से आप इसे कार्ट में जोड़ सकते हैं (+ Add), और भी प्रोडक्ट चुन सकते हैं, या "⚡ Direct Order" से तुरंत ऑर्डर कर सकते हैं:`
+            ? `✅ जी हाँ! आपकी पूछी गई डिश हमारे मेनू में उपलब्ध है:\n\n${lines.join('\n\n')}\n\n👇 नीचे दिए गए कार्ड से आप "+ Add" या "⚙️ Options" (साइज/टॉपिंग) चुन सकते हैं, या "⚡ Direct Order" से तुरंत ऑर्डर कर सकते हैं:`
             : lang === 'gu'
-            ? `✅ હા! તમે પૂછેલી વાનગી અમારા મેનુમાં ઉપલબ્ધ છે:\n\n${lines.join('\n\n')}\n\n👇 નીચેના ડાયરેક્ટ લિંક અને કાર્ડથી તમે "+ Add" કરી શકો છો અથવા "⚡ Direct Order" કરી શકો છો:`
-            : `✅ Yes! Here is the direct dish link & live details from our menu:\n\n${lines.join('\n\n')}\n\n👇 Use the card below to "+ Add" (and keep selecting more dishes), click "⚡ Direct Order", or open the dish directly in the menu:`,
+            ? `✅ હા! તમે પૂછેલી વાનગી અમારા મેનુમાં ઉપલબ્ધ છે:\n\n${lines.join('\n\n')}\n\n👇 નીચેના કાર્ડથી તમે "+ Add" કે "⚙️ Options" કરી શકો છો અથવા "⚡ Direct Order" કરી શકો છો:`
+            : `✅ Yes! Here is the direct dish link & live details from our menu:\n\n${lines.join('\n\n')}\n\n👇 Use the card below to "+ Add", tap "⚙️ Options" to pick sizes/add-ons, or click "⚡ Direct Order":`,
         items: matchedDishes,
         showCategoryBrowser: true,
         matchedTopic: `Dish Link: ${matchedDishes[0].name}`,
@@ -838,7 +1134,7 @@ export const ChatbotWidget: React.FC = () => {
         normQ.includes(normSlug)
       );
     });
-    if (!forcedAction && matchedCat) {
+    if (matchedCat) {
       const catItems = availableItems.filter(i => i.categoryId === matchedCat.id);
       const list = catItems
         .map(i => `• ${i.name}: ${currency}${i.price.toFixed(2)}`)
@@ -846,7 +1142,7 @@ export const ChatbotWidget: React.FC = () => {
       return {
         text:
           lang === 'hi'
-            ? `🍴 ${matchedCat.name} कैटेगरी के सभी ${catItems.length} प्रोडक्ट नीचे दिए गए हैं। आप एक से ज़्यादा प्रोडक्ट "+ Add" कर सकते हैं और अंत में ऑर्डर प्लेस कर सकते हैं:\n${list}`
+            ? `🍴 ${matchedCat.name} कैटेगरी के सभी ${catItems.length} प्रोडक्ट नीचे दिए गए हैं। आप एक से ज़्यादा प्रोडक्ट "+ Add" या "⚙️ Options" कर सकते हैं:\n${list}`
             : lang === 'gu'
             ? `🍴 ${matchedCat.name} કેટેગરીની તમામ ${catItems.length} વાનગીઓ નીચે મુજબ છે:\n${list}`
             : `🍴 All ${catItems.length} dishes in ${matchedCat.name}:\n${list}\n\nSelect multiple items below and place your order when ready!`,
@@ -859,7 +1155,6 @@ export const ChatbotWidget: React.FC = () => {
 
     // 6. Best Sellers / Popular
     if (
-      forcedAction === 'bestsellers' ||
       q.includes('best') ||
       q.includes('popular') ||
       q.includes('special') ||
@@ -883,7 +1178,6 @@ export const ChatbotWidget: React.FC = () => {
 
     // 7. Pure Veg
     if (
-      forcedAction === 'veg_menu' ||
       q.includes('veg') ||
       q.includes('vegetarian') ||
       q.includes('शाकाहारी') ||
@@ -908,7 +1202,6 @@ export const ChatbotWidget: React.FC = () => {
 
     // 8. Full Menu & All Categories Interactive Selector
     if (
-      forcedAction === 'menu' ||
       q.includes('menu') ||
       q.includes('price') ||
       q.includes('food') ||
@@ -929,7 +1222,7 @@ export const ChatbotWidget: React.FC = () => {
       return {
         text:
           lang === 'hi'
-            ? `📋 ${data.profile.name} का पूरा मेनू (${availableItems.length} डिश, ${activeCategories.length} कैटेगरी):\n${catSummary}\n\n👇 नीचे किसी भी कैटेगरी पर क्लिक करें या "+ Add" दबाकर मनपसंद प्रोडक्ट्स चुनें और अंत में ऑर्डर प्लेस करें:`
+            ? `📋 ${data.profile.name} का पूरा मेनू (${availableItems.length} डिश, ${activeCategories.length} कैटेगरी):\n${catSummary}\n\n👇 नीचे किसी भी कैटेगरी पर क्लिक करें या "+ Add" / "⚙️ Options" दबाकर मनपसंद प्रोडक्ट्स चुनें:`
             : lang === 'gu'
             ? `📋 ${data.profile.name} નું સંપૂર્ણ મેનુ (${availableItems.length} વાનગીઓ, ${activeCategories.length} કેટેગરી):\n${catSummary}\n\n👇 નીચે કોઈપણ કેટેગરી પસંદ કરો અને "+ Add" દબાવીને વાનગીઓ ઉમેરો:`
             : `📋 ${data.profile.name} Complete Menu (${availableItems.length} dishes across ${activeCategories.length} categories):\n${catSummary}\n\n👇 Tap any Category button below to filter, add multiple products to your cart, and place your order at the end!`,
@@ -942,7 +1235,6 @@ export const ChatbotWidget: React.FC = () => {
 
     // 9. Special Offers & Deals
     if (
-      forcedAction === 'offers' ||
       q.includes('offer') ||
       q.includes('discount') ||
       q.includes('coupon') ||
@@ -962,14 +1254,13 @@ export const ChatbotWidget: React.FC = () => {
         text:
           [dealLine, ...offerLines].filter(Boolean).join('\n\n') ||
           'Check our Special Offers section for today’s live combo deals!',
+        offers: activeOffers,
         matchedTopic: 'Special Offers & Coupons',
       };
     }
 
     // 10. Opening Hours & Location (with Interactive Google Maps Location Card!)
     if (
-      forcedAction === 'hours' ||
-      forcedAction === 'location' ||
       q.includes('time') ||
       q.includes('open') ||
       q.includes('hour') ||
@@ -985,13 +1276,20 @@ export const ChatbotWidget: React.FC = () => {
       q.includes('સમય') ||
       q.includes('સરનામું')
     ) {
+      const todayIstDay = getISTDayName();
+      const currentIstTime = formatISTTime();
       const scheduleLines = Object.entries(data.openingHours.schedule)
-        .map(([day, s]) => `• ${day}: ${s.isOpen ? `${s.openTime} - ${s.closeTime}` : 'Closed'}`)
+        .map(
+          ([day, s]) =>
+            `${day === todayIstDay ? '👉 ' : '• '}${day}: ${
+              s.isOpen ? `${s.openTime} - ${s.closeTime} (IST)` : 'Closed'
+            }`
+        )
         .join('\n');
       return {
-        text: `🕒 ${data.openingHours.topbarHoursText}\n📍 ${locationTitle}\n${locationAddress}${
+        text: `🕒 ${data.openingHours.topbarHoursText}\n🇮🇳 Current Indian Time: ${todayIstDay}, ${currentIstTime}\n📍 ${locationTitle}\n${locationAddress}${
           locationLandmark ? `\n🧭 Landmark: ${locationLandmark}` : ''
-        }\n📞 Phone: ${data.profile.phone}\n\nWeekly Schedule:\n${scheduleLines}`,
+        }\n📞 Phone: ${data.profile.phone}\n\nWeekly Schedule (IST):\n${scheduleLines}`,
         showLocationCard: true,
         matchedTopic: 'Location & Opening Hours',
       };
@@ -999,7 +1297,6 @@ export const ChatbotWidget: React.FC = () => {
 
     // 11. Delivery Info
     if (
-      forcedAction === 'delivery' ||
       q.includes('deliver') ||
       q.includes('shipping') ||
       q.includes('charge') ||
@@ -1020,7 +1317,7 @@ export const ChatbotWidget: React.FC = () => {
     }
 
     // 12. Chefs
-    if (forcedAction === 'chefs' || q.includes('chef') || q.includes('cook')) {
+    if (q.includes('chef') || q.includes('cook')) {
       const chefs = data.chefs || [];
       const lines = chefs.map(c => `👨‍🍳 ${c.name} — ${c.role}`).join('\n');
       return {
@@ -1030,7 +1327,7 @@ export const ChatbotWidget: React.FC = () => {
     }
 
     // 13. FAQs list
-    if (forcedAction === 'faq' || q.includes('faq') || q.includes('help')) {
+    if (q.includes('faq') || q.includes('help')) {
       const faqText = data.faqs
         .slice(0, 4)
         .map(f => `Q: ${f.question}\nA: ${f.answer}`)
@@ -1110,15 +1407,16 @@ export const ChatbotWidget: React.FC = () => {
       return {
         text: getWelcomeText(lang),
         items: settings.enableDishCards ? availableItems.slice(0, 3) : undefined,
+        showCategoryBrowser: true,
         matchedTopic: 'Greeting',
       };
     }
 
     // Default Fallback -> Unanswered Question!
-    // Triggers Unanswered Queue logging + WhatsApp Support Handoff Card
     return {
       text: getFallbackText(lang),
       items: settings.enableDishCards ? availableItems.slice(0, 2) : undefined,
+      showCategoryBrowser: true,
       isUnanswered: true,
       unansweredQuery: rawQuery,
       showWhatsAppCard: settings.autoShowWhatsAppOnUnanswered !== false,
@@ -1133,7 +1431,7 @@ export const ChatbotWidget: React.FC = () => {
     const queryText = (customText ?? input).trim();
     if (!queryText && !forcedAction) return;
 
-    const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const now = formatISTTime();
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
       sender: 'user',
@@ -1148,6 +1446,7 @@ export const ChatbotWidget: React.FC = () => {
       text: reply.text,
       timestamp: now,
       items: reply.items,
+      offers: reply.offers,
       showCategoryBrowser: reply.showCategoryBrowser,
       selectedCategoryId: reply.selectedCategoryId,
       orderId: reply.orderId,
@@ -1169,9 +1468,8 @@ export const ChatbotWidget: React.FC = () => {
     );
   };
 
-  // --- Confirm Order Directly Inside Chatbot ---
-  const handleConfirmOrderInChat = (e: React.FormEvent) => {
-    e.preventDefault();
+  // --- Confirm Order Directly Inside Chatbot (Supports both Kitchen Admin & WhatsApp!) ---
+  const submitChatbotOrder = (channel: 'admin' | 'whatsapp') => {
     setOrderError('');
 
     if (cart.length === 0) {
@@ -1179,7 +1477,11 @@ export const ChatbotWidget: React.FC = () => {
       return;
     }
     if (!customerName.trim() || !customerPhone.trim()) {
-      setOrderError('Please enter your Name and Phone Number.');
+      setOrderError('Please enter your Name and 10-digit Mobile Number.');
+      return;
+    }
+    if (customerPhone.replace(/\D/g, '').length < 10) {
+      setOrderError('Please enter a valid 10-digit Mobile Number.');
       return;
     }
     if (orderType === 'delivery' && !deliveryAddress.trim()) {
@@ -1188,20 +1490,32 @@ export const ChatbotWidget: React.FC = () => {
     }
 
     const os = data.orderSettings;
+    if (orderType === 'delivery' && subtotal < os.minOrderAmount) {
+      setOrderError(
+        `Minimum order for delivery is ${currency}${os.minOrderAmount}. Please add ${currency}${(
+          os.minOrderAmount - subtotal
+        ).toFixed(0)} more.`
+      );
+      return;
+    }
+
     const deliveryFee =
       orderType === 'delivery'
-        ? subtotal >= os.freeDeliveryThreshold
+        ? subtotal >= os.freeDeliveryThreshold || freeDeliveryByCoupon
           ? 0
           : os.deliveryFee
         : 0;
-    const finalTotal = Number((subtotal + deliveryFee).toFixed(2));
+    const finalTotal = Math.max(0, Number((subtotal - chatCouponDiscount + deliveryFee).toFixed(2)));
+    const couponNote = appliedCouponCode
+      ? ` [Coupon: ${appliedCouponCode}${chatCouponDiscount > 0 ? ` -${currency}${chatCouponDiscount}` : ' FREE DEL'}]`
+      : '';
 
     const createdOrder = addOrder({
       customerName: customerName.trim(),
       customerPhone: customerPhone.trim(),
       orderType,
       deliveryAddress: orderType === 'delivery' ? deliveryAddress.trim() : '',
-      specialInstructions: specialNotes.trim(),
+      specialInstructions: `${specialNotes.trim()}${couponNote}`.trim(),
       items: cart.map(c => ({
         id: c.cartItemId,
         name: c.item.name,
@@ -1210,24 +1524,53 @@ export const ChatbotWidget: React.FC = () => {
         unitPrice: c.unitPrice,
         lineTotal: c.lineTotal,
         addonNames: c.selectedAddons?.map(a => a.name),
+        customerNote: c.customerNote,
         isVeg: c.item.isVeg,
       })),
       subtotal: Number(subtotal.toFixed(2)),
       deliveryFee: Number(deliveryFee.toFixed(2)),
       total: finalTotal,
-      channel: 'admin',
+      channel,
       status: 'pending',
-      notes: 'Confirmed via Website Smart Chatbot',
+      notes: `Confirmed via Website Smart Chatbot${couponNote}`,
     });
 
+    if (channel === 'whatsapp') {
+      const itemsText = cart
+        .map(
+          c =>
+            `• ${c.quantity}x ${c.item.name}${
+              c.selectedVariant ? ` (${c.selectedVariant.name})` : ''
+            }${
+              c.selectedAddons?.length
+                ? ` [+ ${c.selectedAddons.map(a => a.name).join(', ')}]`
+                : ''
+            } = ${currency}${c.lineTotal.toFixed(2)}`
+        )
+        .join('\n');
+      const waText = `*NEW ORDER #${createdOrder.orderNumber}*\nCustomer: ${customerName.trim()} (${customerPhone.trim()})\nType: ${orderType.toUpperCase()}\n${
+        orderType === 'delivery' ? `Address: ${deliveryAddress.trim()}\n` : ''
+      }\n*Items:*\n${itemsText}\n\nSubtotal: ${currency}${subtotal.toFixed(2)}${
+        chatCouponDiscount > 0
+          ? `\nCoupon (${appliedCouponCode}): -${currency}${chatCouponDiscount.toFixed(2)}`
+          : ''
+      }\nDelivery: ${deliveryFee === 0 ? 'FREE' : `${currency}${deliveryFee.toFixed(2)}`}\n*Total Payable: ${currency}${finalTotal.toFixed(2)}*`;
+
+      const waLink = `https://wa.me/${whatsappDigits}?text=${encodeURIComponent(waText)}`;
+      window.open(waLink, '_blank', 'noopener,noreferrer');
+    }
+
     clearCart();
+    setAppliedCouponCode(null);
+    setCouponInput('');
+    setCouponFeedback('');
     setActiveMode('chat');
 
-    const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const now = formatISTTime();
     const confirmBotMsg: ChatMessage = {
       id: `ord-confirm-${Date.now()}`,
       sender: 'bot',
-      text: `🎉 Order Confirmed! (#${createdOrder.orderNumber})\n\n${settings.orderConfirmationNote}`,
+      text: `🎉 Order Confirmed! (#${createdOrder.orderNumber})${couponNote}\n\n${settings.orderConfirmationNote}`,
       timestamp: now,
       orderId: createdOrder.id,
     };
@@ -1236,9 +1579,15 @@ export const ChatbotWidget: React.FC = () => {
     setMessages(nextMessages);
     recordChatInteraction(nextMessages, undefined, 'Order Confirmed in Chat', {
       orderPlaced: true,
+      whatsappClicked: channel === 'whatsapp',
       customerNameOverride: customerName.trim(),
       customerPhoneOverride: customerPhone.trim(),
     });
+  };
+
+  const handleConfirmOrderInChat = (e: React.FormEvent) => {
+    e.preventDefault();
+    submitChatbotOrder('admin');
   };
 
   // --- Lookup Order Status Directly Inside Chatbot ---
@@ -1247,7 +1596,7 @@ export const ChatbotWidget: React.FC = () => {
     if (!lookupQuery.trim()) return;
 
     const matched = findMatchingOrder(lookupQuery);
-    const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const now = formatISTTime();
 
     if (matched) {
       setActiveMode('chat');
@@ -1321,7 +1670,7 @@ export const ChatbotWidget: React.FC = () => {
     });
 
     setActiveMode('chat');
-    const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const now = formatISTTime();
     const nextMsgs: ChatMessage[] = [
       ...messages,
       {
@@ -1370,6 +1719,135 @@ export const ChatbotWidget: React.FC = () => {
     settings.position === 'left' ? 'left-3 sm:left-6' : 'right-3 sm:right-6';
   const desktopWindowSide =
     settings.position === 'left' ? 'sm:left-6 sm:right-auto' : 'sm:right-6 sm:left-auto';
+
+  // Inline Customizer UI for Selecting Dish Sizes/Variants, Add-on Toppings & Cooking Note inside Chatbot
+  const renderInlineDishCustomizer = (dish: MenuItem) => {
+    if (customizingDishId !== dish.id) return null;
+
+    const itemVariants = getDishVariants(dish.id);
+    const itemAddonGroups = getDishAddonGroups(dish);
+    const chosenVariantId = selectedVariantByDish[dish.id] || itemVariants[0]?.id;
+    const chosenVariant = itemVariants.find(v => v.id === chosenVariantId) || itemVariants[0];
+    const chosenAddonIds = selectedAddonsByDish[dish.id] || [];
+    const allAddons = getAllAvailableAddonOptions();
+    const chosenAddons = allAddons.filter(o => chosenAddonIds.includes(o.id));
+    const addonsSum = chosenAddons.reduce((s, a) => s + a.price, 0);
+    const customTotal = (chosenVariant ? chosenVariant.price : dish.price) + addonsSum;
+
+    return (
+      <div className="mt-2 p-2.5 rounded-xl bg-[#fff8f0] border border-[#e8281a]/40 space-y-2.5 animate-fadeIn">
+        <div className="flex items-center justify-between border-b border-[#e0d6c8] pb-1.5">
+          <span className="text-[11px] font-extrabold text-[#1a1a1a]">
+            ⚙️ Customize {dish.name}
+          </span>
+          <button
+            type="button"
+            onClick={() => setCustomizingDishId(null)}
+            className="text-[10px] font-bold text-[#7a6e65] hover:text-[#e8281a] cursor-pointer"
+          >
+            ✕ Close
+          </button>
+        </div>
+
+        {/* 1. Size / Portion Variants */}
+        {itemVariants.length > 0 && (
+          <div className="space-y-1">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[#5a524c]">
+              Select Size / Option (Required):
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {itemVariants.map(v => {
+                const isSelected = (chosenVariant?.id || '') === v.id;
+                return (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() =>
+                      setSelectedVariantByDish(prev => ({ ...prev, [dish.id]: v.id }))
+                    }
+                    className={`px-2.5 py-1 rounded-lg text-[10.5px] font-bold border transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-[#e8281a] text-white border-[#e8281a]'
+                        : 'bg-white text-[#1a1a1a] border-[#e0d6c8] hover:border-[#e8281a]'
+                    }`}
+                  >
+                    {v.name} • {currency}
+                    {v.price}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* 2. Extra Add-on Toppings / Sides */}
+        {itemAddonGroups.map(({ group, options }) => (
+          <div key={group.id} className="space-y-1">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[#5a524c]">
+              {group.name} (Optional Add-ons):
+            </p>
+            <div className="grid grid-cols-1 gap-1">
+              {options.map(opt => {
+                const isChecked = chosenAddonIds.includes(opt.id);
+                return (
+                  <label
+                    key={opt.id}
+                    onClick={() => handleToggleAddonForDish(dish.id, opt.id)}
+                    className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg border text-[11px] cursor-pointer transition-all ${
+                      isChecked
+                        ? 'bg-emerald-50 border-emerald-500 text-emerald-950 font-bold'
+                        : 'bg-white border-[#e0d6c8] text-[#1a1a1a]'
+                    }`}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <span
+                        className={`w-3.5 h-3.5 rounded flex items-center justify-center border ${
+                          isChecked
+                            ? 'bg-emerald-600 border-emerald-600 text-white'
+                            : 'border-[#c4b8aa] bg-white'
+                        }`}
+                      >
+                        {isChecked && <Check className="w-2.5 h-2.5" />}
+                      </span>
+                      <span>{opt.name}</span>
+                    </span>
+                    <span className="font-bold text-[#e8281a]">
+                      +{currency}
+                      {opt.price}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+
+        {/* 3. Special Cooking Note */}
+        <input
+          type="text"
+          value={customNoteByDish[dish.id] || ''}
+          onChange={e =>
+            setCustomNoteByDish(prev => ({ ...prev, [dish.id]: e.target.value }))
+          }
+          placeholder="Cooking note (e.g., extra spicy, Jain, no onion)..."
+          className="w-full px-2.5 py-1.5 rounded-lg bg-white border border-[#e0d6c8] text-[11px]"
+        />
+
+        {/* 4. Add Customized Item Button */}
+        <button
+          type="button"
+          onClick={() => handleAddCustomizedDish(dish)}
+          className="w-full py-2 px-3 rounded-xl bg-[#e8281a] hover:bg-[#c01e12] text-white text-[11px] font-bold flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          <span>
+            Add Selected Options to Order ({currency}
+            {customTotal.toFixed(2)})
+          </span>
+        </button>
+      </div>
+    );
+  };
 
   return (
     <>
@@ -1544,14 +2022,14 @@ export const ChatbotWidget: React.FC = () => {
             )}
           </div>
 
-          {/* MODE 1: IN-CHAT INSTANT ORDER CONFIRMATION PANEL (WITH FULL CATEGORY & PRODUCT BROWSER) */}
+          {/* MODE 1: IN-CHAT INSTANT ORDER CONFIRMATION PANEL (WITH FULL CATEGORY, OPTIONS & COUPON BROWSER) */}
           {activeMode === 'order_form' && (
             <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#fff8f0]">
-              {/* 1A. Browse All Categories & Menu Products to Add Multiple Items */}
+              {/* 1A. Browse All Categories & Menu Products to Add Multiple Items + Customize Options */}
               <div className="bg-white rounded-2xl p-3.5 border border-[#e0d6c8] shadow-xs space-y-2.5">
                 <div className="flex items-center justify-between">
                   <h5 className="font-bold text-xs uppercase tracking-wider text-[#1a1a1a]">
-                    1. Select Dishes by Category
+                    1. Select Dishes & Options
                   </h5>
                   <span className="text-[10px] font-semibold text-[#7a6e65]">
                     {data.items.filter(i => i.stockStatus === 'available').length} dishes available
@@ -1604,8 +2082,8 @@ export const ChatbotWidget: React.FC = () => {
                   className="w-full px-3 py-1.5 rounded-xl bg-[#fff8f0] border border-[#e0d6c8] text-xs"
                 />
 
-                {/* All Matching Menu Products with Multi-Select (- / +) Controls */}
-                <div className="grid grid-cols-1 gap-1.5 max-h-48 overflow-y-auto pr-1">
+                {/* All Matching Menu Products with Multi-Select (- / +) & ⚙️ Options Customizer */}
+                <div className="grid grid-cols-1 gap-1.5 max-h-60 overflow-y-auto pr-1">
                   {data.items
                     .filter(i => {
                       if (i.stockStatus !== 'available') return false;
@@ -1627,71 +2105,88 @@ export const ChatbotWidget: React.FC = () => {
                       const matchingCartEntries = cart.filter(c => c.item.id === dish.id);
                       const qtyInCart = matchingCartEntries.reduce((s, c) => s + c.quantity, 0);
                       const primaryEntry = matchingCartEntries[0];
+                      const hasOpts = dishHasOptions(dish);
 
                       return (
                         <div
                           key={dish.id}
-                          className="flex items-center justify-between p-2 rounded-xl bg-[#fff8f0] border border-[#e0d6c8] gap-2"
+                          className="p-2 rounded-xl bg-[#fff8f0] border border-[#e0d6c8] space-y-1.5"
                         >
-                          <div className="flex items-center gap-2 min-w-0 flex-1">
-                            {dish.imageUrl && (
-                              <img
-                                src={dish.imageUrl}
-                                alt={dish.name}
-                                className="w-9 h-9 rounded-lg object-cover shrink-0"
-                              />
-                            )}
-                            <div className="min-w-0">
-                              <p className="text-xs font-bold text-[#1a1a1a] truncate">
-                                {dish.name}
-                              </p>
-                              <p className="text-[11px] font-semibold text-[#e8281a]">
-                                {currency}
-                                {dish.price.toFixed(2)}
-                              </p>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              {dish.imageUrl && (
+                                <img
+                                  src={dish.imageUrl}
+                                  alt={dish.name}
+                                  className="w-9 h-9 rounded-lg object-cover shrink-0"
+                                />
+                              )}
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-[#1a1a1a] truncate">
+                                  {dish.name}
+                                </p>
+                                <div className="flex items-center gap-1.5">
+                                  <p className="text-[11px] font-semibold text-[#e8281a]">
+                                    {currency}
+                                    {dish.price.toFixed(2)}
+                                  </p>
+                                  {hasOpts && (
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleDishOptionsPanel(dish)}
+                                      className="text-[10px] font-bold text-[#1a1a1a] bg-white hover:bg-[#f6a623]/20 px-1.5 py-0.5 rounded border border-[#e0d6c8] cursor-pointer"
+                                    >
+                                      ⚙️ Options
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
                             </div>
+
+                            {qtyInCart > 0 && primaryEntry ? (
+                              <div className="flex items-center gap-1 bg-white border border-[#e8281a] rounded-lg px-1.5 py-0.5 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    primaryEntry.quantity > 1
+                                      ? updateQuantity(primaryEntry.cartItemId, -1)
+                                      : removeFromCart(primaryEntry.cartItemId)
+                                  }
+                                  className="w-5 h-5 rounded-md bg-[#fff8f0] flex items-center justify-center text-xs cursor-pointer"
+                                >
+                                  <Minus className="w-3 h-3" />
+                                </button>
+                                <span className="text-xs font-extrabold w-4 text-center">
+                                  {qtyInCart}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => updateQuantity(primaryEntry.cartItemId, 1)}
+                                  className="w-5 h-5 rounded-md bg-[#e8281a] text-white flex items-center justify-center text-xs cursor-pointer"
+                                >
+                                  <Plus className="w-3 h-3" />
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleQuickAddItem(dish)}
+                                className="px-2.5 py-1.5 rounded-lg bg-[#1a1a1a] hover:bg-[#e8281a] text-white text-[11px] font-bold shrink-0 cursor-pointer"
+                              >
+                                + Add
+                              </button>
+                            )}
                           </div>
 
-                          {qtyInCart > 0 && primaryEntry ? (
-                            <div className="flex items-center gap-1 bg-white border border-[#e8281a] rounded-lg px-1.5 py-0.5 shrink-0">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  primaryEntry.quantity > 1
-                                    ? updateQuantity(primaryEntry.cartItemId, -1)
-                                    : removeFromCart(primaryEntry.cartItemId)
-                                }
-                                className="w-5 h-5 rounded-md bg-[#fff8f0] flex items-center justify-center text-xs cursor-pointer"
-                              >
-                                <Minus className="w-3 h-3" />
-                              </button>
-                              <span className="text-xs font-extrabold w-4 text-center">
-                                {qtyInCart}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => updateQuantity(primaryEntry.cartItemId, 1)}
-                                className="w-5 h-5 rounded-md bg-[#e8281a] text-white flex items-center justify-center text-xs cursor-pointer"
-                              >
-                                <Plus className="w-3 h-3" />
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => handleQuickAddItem(dish)}
-                              className="px-2.5 py-1.5 rounded-lg bg-[#1a1a1a] hover:bg-[#e8281a] text-white text-[11px] font-bold shrink-0 cursor-pointer"
-                            >
-                              + Add
-                            </button>
-                          )}
+                          {/* Inline Options Selector inside Order Form */}
+                          {renderInlineDishCustomizer(dish)}
                         </div>
                       );
                     })}
                 </div>
               </div>
 
-              {/* 1B. Selected Cart Items Summary */}
+              {/* 1B. Selected Cart Items Summary (Showing Sizes, Add-ons & Notes!) */}
               {cart.length > 0 && (
                 <div className="bg-white rounded-2xl p-3.5 border border-[#e0d6c8] shadow-xs">
                   <div className="flex items-center justify-between mb-2">
@@ -1709,7 +2204,7 @@ export const ChatbotWidget: React.FC = () => {
                     </button>
                   </div>
 
-                  <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
                     {cart.map(cItem => (
                       <div
                         key={cItem.cartItemId}
@@ -1719,7 +2214,22 @@ export const ChatbotWidget: React.FC = () => {
                           <p className="text-xs font-bold text-[#1a1a1a] truncate">
                             {cItem.item.name}
                           </p>
-                          <p className="text-[11px] text-[#7a6e65]">
+                          {cItem.selectedVariant && (
+                            <p className="text-[10px] font-semibold text-[#5a524c]">
+                              Size: {cItem.selectedVariant.name}
+                            </p>
+                          )}
+                          {cItem.selectedAddons && cItem.selectedAddons.length > 0 && (
+                            <p className="text-[10px] text-emerald-700 font-medium truncate">
+                              + {cItem.selectedAddons.map(a => a.name).join(', ')}
+                            </p>
+                          )}
+                          {cItem.customerNote && (
+                            <p className="text-[10px] italic text-amber-800 truncate">
+                              Note: {cItem.customerNote}
+                            </p>
+                          )}
+                          <p className="text-[11px] font-bold text-[#e8281a]">
                             {currency}
                             {cItem.lineTotal.toFixed(2)}
                           </p>
@@ -1752,6 +2262,68 @@ export const ChatbotWidget: React.FC = () => {
                   </div>
                 </div>
               )}
+
+              {/* 1C. Promo / Coupon Code Bar inside Order Form */}
+              <div className="bg-white rounded-2xl p-3.5 border border-[#e0d6c8] shadow-xs space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-[#1a1a1a]">
+                    🏷️ Apply Promo / Coupon Code
+                  </span>
+                  {appliedCouponCode && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAppliedCouponCode(null);
+                        setCouponInput('');
+                        setCouponFeedback('');
+                      }}
+                      className="text-[10px] font-bold text-red-600 cursor-pointer"
+                    >
+                      Remove ({appliedCouponCode})
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    value={couponInput}
+                    onChange={e => setCouponInput(e.target.value.toUpperCase())}
+                    placeholder="Enter coupon code (e.g., SMASH30, SARAB15)"
+                    className="flex-1 px-3 py-1.5 rounded-xl bg-[#fff8f0] border border-[#e0d6c8] text-xs font-mono uppercase"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleApplyCouponInChat()}
+                    className="px-3 py-1.5 rounded-xl bg-[#1a1a1a] hover:bg-[#e8281a] text-white text-xs font-bold cursor-pointer"
+                  >
+                    Apply
+                  </button>
+                </div>
+
+                {activeOffers.length > 0 && (
+                  <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-0.5">
+                    {activeOffers.map(off => (
+                      <button
+                        key={off.id}
+                        type="button"
+                        onClick={() => handleApplyCouponInChat(off.code)}
+                        className={`px-2 py-1 rounded-lg text-[10px] font-bold border whitespace-nowrap cursor-pointer transition-all ${
+                          appliedCouponCode === off.code.toUpperCase()
+                            ? 'bg-emerald-600 text-white border-emerald-600'
+                            : 'bg-[#fff8f0] text-[#1a1a1a] border-[#e0d6c8] hover:border-[#e8281a]'
+                        }`}
+                      >
+                        🏷️ {off.code} ({off.discountBadge})
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {couponFeedback && (
+                  <p className="text-[10.5px] font-semibold text-emerald-700">{couponFeedback}</p>
+                )}
+              </div>
 
               {/* Customer Details & Confirm Form */}
               <form
@@ -1793,7 +2365,7 @@ export const ChatbotWidget: React.FC = () => {
                   required
                   value={customerPhone}
                   onChange={e => setCustomerPhone(e.target.value)}
-                  placeholder="Mobile / WhatsApp Number *"
+                  placeholder="Mobile / WhatsApp Number (10 digits) *"
                   className="w-full px-3 py-2.5 rounded-xl bg-[#fff8f0] border border-[#e0d6c8] text-xs"
                 />
 
@@ -1837,29 +2409,71 @@ export const ChatbotWidget: React.FC = () => {
                   <p className="text-[11px] text-red-600 font-semibold">{orderError}</p>
                 )}
 
-                <div className="pt-2 border-t border-[#e0d6c8] flex items-center justify-between text-xs">
-                  <span className="text-[#7a6e65] font-medium">Total Payable:</span>
-                  <span className="text-base font-black text-[#1a1a1a]">
-                    {currency}
-                    {(
-                      subtotal +
-                      (orderType === 'delivery' &&
-                      subtotal > 0 &&
-                      subtotal < data.orderSettings.freeDeliveryThreshold
-                        ? data.orderSettings.deliveryFee
-                        : 0)
-                    ).toFixed(2)}
-                  </span>
+                <div className="pt-2 border-t border-[#e0d6c8] space-y-1 text-xs">
+                  <div className="flex items-center justify-between text-[#7a6e65]">
+                    <span>Subtotal:</span>
+                    <span>
+                      {currency}
+                      {subtotal.toFixed(2)}
+                    </span>
+                  </div>
+                  {chatCouponDiscount > 0 && (
+                    <div className="flex items-center justify-between text-emerald-700 font-semibold">
+                      <span>Coupon Discount ({appliedCouponCode}):</span>
+                      <span>
+                        -{currency}
+                        {chatCouponDiscount.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  {orderType === 'delivery' && (
+                    <div className="flex items-center justify-between text-[#7a6e65]">
+                      <span>Delivery Fee:</span>
+                      <span>
+                        {subtotal >= data.orderSettings.freeDeliveryThreshold || freeDeliveryByCoupon
+                          ? 'FREE'
+                          : `${currency}${data.orderSettings.deliveryFee.toFixed(2)}`}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between pt-1 border-t border-[#e0d6c8]">
+                    <span className="text-[#1a1a1a] font-bold">Total Payable:</span>
+                    <span className="text-base font-black text-[#e8281a]">
+                      {currency}
+                      {Math.max(
+                        0,
+                        subtotal -
+                          chatCouponDiscount +
+                          (orderType === 'delivery' &&
+                          subtotal > 0 &&
+                          subtotal < data.orderSettings.freeDeliveryThreshold &&
+                          !freeDeliveryByCoupon
+                            ? data.orderSettings.deliveryFee
+                            : 0)
+                      ).toFixed(2)}
+                    </span>
+                  </div>
                 </div>
 
-                <button
-                  type="submit"
-                  className="w-full py-3 rounded-xl text-white text-xs font-bold shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
-                  style={{ backgroundColor: primaryColor }}
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Confirm Order Now</span>
-                </button>
+                <div className="space-y-2 pt-1">
+                  <button
+                    type="submit"
+                    className="w-full py-3 rounded-xl text-white text-xs font-bold shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+                    style={{ backgroundColor: primaryColor }}
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Confirm Order in Chat (Send to Kitchen)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => submitChatbotOrder('whatsapp')}
+                    className="w-full py-2.5 rounded-xl bg-[#25D366] hover:bg-[#1da851] text-white text-xs font-bold shadow-xs transition-all cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <PhoneCall className="w-3.5 h-3.5" />
+                    <span>Confirm & Send Order on WhatsApp</span>
+                  </button>
+                </div>
               </form>
             </div>
           )}
@@ -2141,6 +2755,51 @@ export const ChatbotWidget: React.FC = () => {
                         </div>
                       )}
 
+                      {/* INTERACTIVE SPECIAL OFFERS & 1-CLICK COUPON APPLICATION CARDS */}
+                      {msg.offers && msg.offers.length > 0 && (
+                        <div className="mt-2.5 w-full space-y-2">
+                          {msg.offers.map(off => {
+                            const isApplied = appliedCouponCode === off.code.toUpperCase();
+                            return (
+                              <div
+                                key={off.id}
+                                className="bg-white rounded-2xl p-3 border border-[#e0d6c8] flex items-center justify-between gap-2 shadow-2xs"
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="px-2 py-0.5 rounded bg-[#f6a623] text-[#1a1a1a] text-[9.5px] font-extrabold uppercase">
+                                      {off.discountBadge}
+                                    </span>
+                                    <span className="font-mono text-[11px] font-bold text-[#e8281a]">
+                                      {off.code}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs font-bold text-[#1a1a1a] mt-0.5 truncate">
+                                    {off.title}
+                                  </p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    handleApplyCouponInChat(off.code);
+                                    if (settings.enableOrderPlacement) {
+                                      setActiveMode('order_form');
+                                    }
+                                  }}
+                                  className={`px-3 py-1.5 rounded-xl text-[11px] font-bold shrink-0 cursor-pointer transition-all ${
+                                    isApplied
+                                      ? 'bg-emerald-600 text-white'
+                                      : 'bg-[#1a1a1a] hover:bg-[#e8281a] text-white'
+                                  }`}
+                                >
+                                  {isApplied ? '✓ Applied' : 'Apply Offer'}
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
                       {/* LIVE ORDER STATUS CARD (Updates in real time when Admin changes status!) */}
                       {liveOrder && (
                         <div className="mt-2 w-[92%] bg-white rounded-2xl p-3.5 border-2 border-[#e8281a]/25 shadow-md space-y-2.5">
@@ -2214,6 +2873,7 @@ export const ChatbotWidget: React.FC = () => {
                               <div key={i} className="flex justify-between">
                                 <span>
                                   {it.quantity}x {it.name}
+                                  {it.variantName ? ` (${it.variantName})` : ''}
                                 </span>
                                 <span className="font-semibold">
                                   {currency}
@@ -2300,15 +2960,16 @@ export const ChatbotWidget: React.FC = () => {
                         </div>
                       )}
 
-                      {/* Interactive Dish Cards with Multi-Select (- / +) & Direct Links inside Chat */}
+                      {/* Interactive Dish Cards with Multi-Select (- / +), ⚙️ Options & Direct Links inside Chat */}
                       {msg.items && msg.items.length > 0 && (
-                        <div className="mt-2.5 w-full space-y-2 max-h-72 overflow-y-auto pr-1">
+                        <div className="mt-2.5 w-full space-y-2 max-h-80 overflow-y-auto pr-1">
                           {msg.items.map(dish => {
                             const isAdded = addedItemIds[dish.id];
                             const matchingEntries = cart.filter(c => c.item.id === dish.id);
                             const qtyInCart = matchingEntries.reduce((s, c) => s + c.quantity, 0);
                             const primaryEntry = matchingEntries[0];
                             const catObj = data.categories.find(c => c.id === dish.categoryId);
+                            const hasOpts = dishHasOptions(dish);
 
                             return (
                               <div
@@ -2335,7 +2996,7 @@ export const ChatbotWidget: React.FC = () => {
                                         {dish.name}
                                       </p>
                                     </div>
-                                    <div className="flex items-center gap-2 mt-0.5">
+                                    <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                                       <p className="text-xs font-extrabold text-[#e8281a]">
                                         {currency}
                                         {dish.price.toFixed(2)}
@@ -2344,6 +3005,15 @@ export const ChatbotWidget: React.FC = () => {
                                         <span className="text-[10px] text-[#7a6e65] bg-[#fff8f0] px-1.5 py-0.5 rounded-md border border-[#e0d6c8]">
                                           {catObj.name}
                                         </span>
+                                      )}
+                                      {hasOpts && (
+                                        <button
+                                          type="button"
+                                          onClick={() => toggleDishOptionsPanel(dish)}
+                                          className="text-[10px] font-bold text-[#1a1a1a] bg-[#fff8f0] hover:bg-[#f6a623]/25 px-1.5 py-0.5 rounded-md border border-[#e8281a]/30 cursor-pointer"
+                                        >
+                                          ⚙️ Options
+                                        </button>
                                       )}
                                     </div>
                                   </div>
@@ -2397,6 +3067,9 @@ export const ChatbotWidget: React.FC = () => {
                                     </button>
                                   )}
                                 </div>
+
+                                {/* Inline Options Selector (Variants / Sizes + Add-on Toppings + Note) */}
+                                {renderInlineDishCustomizer(dish)}
 
                                 {/* Direct Action Links Row: Direct Dish Link in Menu + Direct Order Now */}
                                 <div className="flex items-center justify-between gap-1.5 pt-1.5 border-t border-[#f3e9dc]">

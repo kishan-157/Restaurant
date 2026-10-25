@@ -33,7 +33,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateTab })
     isConnected,
   } = useRestaurant();
 
-  const currency = data.profile.currencySymbol || '$';
+  const currency = data.profile.currencySymbol || '₹';
 
   // 100% Real-Time Metrics from Live State (Zero Fake Data)
   const validOrders = orders.filter(o => o.status !== 'cancelled');
