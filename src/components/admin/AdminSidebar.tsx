@@ -22,6 +22,7 @@ import {
   HardDriveDownload,
   HelpCircle,
   Bot,
+  Volume2,
 } from 'lucide-react';
 import { useRestaurant } from '../../context/RestaurantContext';
 
@@ -41,6 +42,7 @@ export type AdminTabId =
   | 'socials'
   | 'seo'
   | 'chatbot'
+  | 'audio'
   | 'database'
   | 'backup'
   | 'help';
@@ -87,6 +89,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
         },
         { id: 'stock', label: 'Quick Stock Toggle', icon: PackageCheck },
         { id: 'chatbot', label: 'Smart Chatbot', icon: Bot },
+        { id: 'audio', label: 'Welcome Audio & Voice', icon: Volume2 },
       ],
     },
     {

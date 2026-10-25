@@ -32,7 +32,7 @@ export const GallerySection: React.FC = () => {
     <>
       {/* ===================== SARAB GALLERY SECTION (#gallery) ===================== */}
       {data.websiteSections.showGallery && galleryItems.length > 0 && (
-        <section id="gallery" className="py-18 sm:py-22 bg-[#f9f5f0]">
+        <section id="gallery" className="py-14 sm:py-22 bg-[#f9f5f0] w-full max-w-[100vw] overflow-hidden">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
               <span className="slbl">Food Showcase</span>
@@ -133,7 +133,7 @@ export const GallerySection: React.FC = () => {
 
       {/* ===================== SARAB HISTORY TIMELINE (#history) ===================== */}
       {data.websiteSections.showHistory !== false && historyTimeline.length > 0 && (
-        <section id="history" className="py-18 sm:py-22 bg-[#fff8f0]">
+        <section id="history" className="py-14 sm:py-22 bg-[#fff8f0] w-full max-w-[100vw] overflow-hidden">
           <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-14">
               <span className="slbl">Our Journey</span>
@@ -204,7 +204,7 @@ export const GallerySection: React.FC = () => {
 
       {/* ===================== SARAB MEET OUR EXPERT CHEFS (#chefs) ===================== */}
       {data.websiteSections.showChefs !== false && chefs.length > 0 && (
-        <section id="chefs" className="py-18 sm:py-22 bg-white">
+        <section id="chefs" className="py-14 sm:py-22 bg-white w-full max-w-[100vw] overflow-hidden">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
               <span className="slbl">The Culinary Team</span>

@@ -577,6 +577,56 @@ export interface ChatbotSettings {
   chatLogs?: ChatbotSessionLog[];
 }
 
+export interface AudioTrackItem {
+  id: string;
+  title: string;
+  subtitle?: string;
+  audioUrl: string; // URL or base64 data URI from Admin upload / mic recording
+  durationLabel?: string;
+  category: 'welcome_voice' | 'promo_offer' | 'background_music';
+  isActive: boolean;
+}
+
+export interface AudioSettings {
+  enabled: boolean;
+  sourceMode: 'file_or_url' | 'voice_tts' | 'both';
+  playerStyle: 'welcome_card_and_mini' | 'floating_pill_only';
+  position: 'bottom_left' | 'top_right';
+  autoPlayOnLoad: boolean;
+  unlockOnFirstTap: boolean;
+  loopAudio: boolean;
+  autoHideOnEnd: boolean;
+  showSkipButton: boolean;
+  playFrequency: 'every_visit' | 'once_per_session' | 'once_per_day';
+  delaySeconds: number;
+  volume: number; // 0.1 to 1.0
+  // Active Audio File / URL
+  activeAudioUrl: string;
+  activeTrackTitle: string;
+  activeTrackSubtitle: string;
+  // Welcome Audio Card Customization
+  welcomeBadgeText: string;
+  welcomeTitle: string;
+  welcomeSubtitle: string;
+  listenButtonText: string;
+  skipButtonText: string;
+  // Interactive CTA Button inside Audio Card
+  enableCtaButton: boolean;
+  ctaButtonText: string;
+  ctaTargetSection: string; // e.g. '#special', '#menu', '#reservation'
+  // Smart Voice Announcer (TTS) Settings
+  voiceLanguage: 'hi-IN' | 'gu-IN' | 'en-IN';
+  voiceTextHi: string;
+  voiceTextGu: string;
+  voiceTextEn: string;
+  voiceRate: number; // 0.8 to 1.2
+  voicePitch: number; // 0.8 to 1.2
+  enableWelcomeChime: boolean;
+  enableCartSoundEffects: boolean;
+  // Saved Audio Playlist / Uploaded Tracks
+  tracks: AudioTrackItem[];
+}
+
 export interface RestaurantDatabaseBundle {
   version: string;
   exportedAt: string;
@@ -599,8 +649,10 @@ export interface RestaurantDatabaseBundle {
   seo: SEOSettings;
   sectionContents?: SectionContents;
   chatbotSettings?: ChatbotSettings;
+  audioSettings?: AudioSettings;
   orders?: Order[];
   reservations?: TableReservation[];
   contactMessages?: ContactMessage[];
   partyInquiries?: PartyInquiry[];
 }
+

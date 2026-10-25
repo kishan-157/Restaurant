@@ -17,6 +17,7 @@ import { CateringModal } from './components/home/CateringModal';
 import { AdminModal } from './components/admin/AdminModal';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { ChatbotWidget } from './components/common/ChatbotWidget';
+import { WebsiteAudioPlayer } from './components/common/WebsiteAudioPlayer';
 
 const MainLayout: React.FC = () => {
   const { data } = useRestaurant();
@@ -72,12 +73,12 @@ const MainLayout: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-white text-[#444444] selection:bg-[#e8281a] selection:text-white">
+    <div className="min-h-screen w-full max-w-[100vw] overflow-x-hidden flex flex-col bg-white text-[#444444] selection:bg-[#e8281a] selection:text-white">
       {/* Sarab Topbar + Sticky Navbar + Full-Screen Search Overlay */}
       <Navbar onOpenAdmin={handleOpenAdmin} isAdminOpen={isAdminOpen} />
 
       {/* Sarab Public Website Sections in Exact Template Order */}
-      <main className="flex-1">
+      <main className="flex-1 w-full min-w-0 max-w-[100vw] overflow-x-hidden">
         {/* 1. Hero Section + Red Marquee Ticker */}
         {data.websiteSections.showHero && <HeroSection />}
 
@@ -111,6 +112,9 @@ const MainLayout: React.FC = () => {
 
       {/* Live Verified Assistant Chatbot Widget */}
       <ChatbotWidget />
+
+      {/* Website Welcome Audio & Voice Announcement Player */}
+      <WebsiteAudioPlayer />
 
       {/* Cart Drawer (WhatsApp & Admin Panel Checkout) */}
       <CartDrawer />

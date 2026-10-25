@@ -98,37 +98,37 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAdmin, isAdminOpen }) => {
   return (
     <>
       {/* ===================== SARAB TOP BAR (#topbar) ===================== */}
-      <div id="topbar" className="bg-[#111111] text-[#aaaaaa] py-2 text-[12.5px] border-b border-white/5">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-4">
+      <div id="topbar" className="w-full overflow-hidden bg-[#111111] text-[#aaaaaa] py-1.5 sm:py-2 text-[11px] sm:text-[12.5px] border-b border-white/5">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 flex flex-wrap items-center justify-between gap-1.5 sm:gap-2">
+          <div className="flex items-center gap-3 min-w-0">
             <a
               href={`tel:${profile.phone}`}
-              className="inline-flex items-center gap-1.5 hover:text-white transition-colors"
+              className="inline-flex items-center gap-1 hover:text-white transition-colors truncate"
             >
-              <Phone className="w-3.5 h-3.5 text-[#f6a623]" />
-              <span>{profile.phone}</span>
+              <Phone className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#f6a623] shrink-0" />
+              <span className="truncate">{profile.phone}</span>
             </a>
-            <span className="hidden md:inline-flex items-center gap-1.5">
-              <MapPin className="w-3.5 h-3.5 text-[#f6a623]" />
-              <span>
+            <span className="hidden md:inline-flex items-center gap-1.5 truncate">
+              <MapPin className="w-3.5 h-3.5 text-[#f6a623] shrink-0" />
+              <span className="truncate">
                 {profile.address}, {profile.city}
               </span>
             </span>
             <span className="hidden lg:inline-flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-[#f6a623]" />
+              <Clock className="w-3.5 h-3.5 text-[#f6a623] shrink-0" />
               <span>{openingHours.topbarHoursText || 'Wed-Sun: 9:00 AM - 11:00 PM'}</span>
             </span>
           </div>
 
-          <div className="flex items-center gap-2.5 ml-auto">
+          <div className="flex items-center gap-1.5 sm:gap-2.5 ml-auto shrink-0">
             <span
-              className="text-white px-2.5 py-0.5 rounded-full text-[10.5px] font-semibold uppercase tracking-wide"
+              className="text-white px-2 sm:px-2.5 py-0.5 rounded-full text-[9.5px] sm:text-[10.5px] font-semibold uppercase tracking-wide"
               style={{ backgroundColor: profile.primaryColor || '#e8281a' }}
             >
               Free Delivery
             </span>
-            <span className="text-xs text-[#cccccc]">
-              Orders over {profile.currencySymbol}
+            <span className="text-[11px] sm:text-xs text-[#cccccc] whitespace-nowrap">
+              Over {profile.currencySymbol}
               {orderSettings.freeDeliveryThreshold}
             </span>
           </div>
@@ -138,31 +138,31 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAdmin, isAdminOpen }) => {
       {/* ===================== SARAB STICKY NAVBAR (#nav) ===================== */}
       <header
         id="nav"
-        className={`sticky top-0 z-40 w-full bg-white/95 backdrop-blur-md transition-all duration-300 ${
+        className={`sticky top-0 z-40 w-full max-w-[100vw] bg-white/95 backdrop-blur-md transition-all duration-300 ${
           scrolled
-            ? 'shadow-[0_4px_30px_rgba(0,0,0,0.12)] py-2.5'
-            : 'shadow-[0_2px_20px_rgba(0,0,0,0.06)] py-3.5'
+            ? 'shadow-[0_4px_30px_rgba(0,0,0,0.12)] py-2'
+            : 'shadow-[0_2px_20px_rgba(0,0,0,0.06)] py-2.5 sm:py-3.5'
         }`}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 flex items-center justify-between gap-2">
           {/* Brand Logo (.blogo) */}
-          <a href="#hero" className="flex items-center gap-2.5 shrink-0 group">
+          <a href="#hero" className="flex items-center gap-2 sm:gap-2.5 min-w-0 group">
             <div
-              className="w-[44px] h-[44px] rounded-full flex items-center justify-center text-white shadow-[0_4px_15px_rgba(232,40,26,0.35)] group-hover:scale-105 transition-transform"
+              className="w-9 h-9 sm:w-[44px] sm:h-[44px] rounded-full flex items-center justify-center text-white shadow-[0_4px_15px_rgba(232,40,26,0.35)] group-hover:scale-105 transition-transform shrink-0"
               style={{
                 background: `linear-gradient(135deg, ${profile.primaryColor || '#e8281a'}, ${
                   profile.secondaryColor || '#f6a623'
                 })`,
               }}
             >
-              <Utensils className="w-5 h-5" />
+              <Utensils className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <div className="leading-none">
-              <span className="font-heading text-2xl font-black text-[#1a1a1a] tracking-tight block">
+            <div className="leading-none min-w-0">
+              <span className="font-heading text-lg sm:text-2xl font-black text-[#1a1a1a] tracking-tight block truncate max-w-[135px] sm:max-w-none">
                 {profile.name || 'Sarab'}
                 <span style={{ color: profile.primaryColor || '#e8281a' }}>.</span>
               </span>
-              <span className="text-[9px] font-semibold uppercase tracking-[2px] text-[#999999] block mt-0.5">
+              <span className="text-[8px] sm:text-[9px] font-semibold uppercase tracking-[1px] sm:tracking-[2px] text-[#999999] block mt-0.5 truncate max-w-[135px] sm:max-w-none">
                 {profile.tagline || 'Fast Food & Dining'}
               </span>
             </div>
@@ -194,13 +194,13 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAdmin, isAdminOpen }) => {
             })}
           </nav>
 
-          {/* Right Action Controls (Clean & Streamlined) */}
-          <div className="flex items-center gap-2 shrink-0">
+          {/* Right Action Controls (Clean & Mobile-Optimized) */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {/* Search Overlay Trigger (#navSearchBtn) */}
             <button
               id="navSearchBtn"
               onClick={() => setSearchOpen(true)}
-              className="p-2.5 rounded-full text-[#555555] hover:bg-[#fff8f0] hover:text-[#e8281a] transition-colors cursor-pointer"
+              className="p-2 sm:p-2.5 rounded-full text-[#555555] hover:bg-[#fff8f0] hover:text-[#e8281a] transition-colors cursor-pointer"
               title="Search Menu"
               aria-label="Open Search Overlay"
             >
@@ -211,7 +211,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAdmin, isAdminOpen }) => {
             {orderSettings.enableCartAndCheckout && (
               <button
                 onClick={() => setIsCartOpen(true)}
-                className="relative px-3 py-2 rounded-full text-xs font-semibold text-[#1a1a1a] bg-[#fff8f0] hover:bg-[#fef0dc] border border-[#f6a623]/30 flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="relative px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-full text-xs font-semibold text-[#1a1a1a] bg-[#fff8f0] hover:bg-[#fef0dc] border border-[#f6a623]/30 flex items-center gap-1 sm:gap-1.5 transition-colors cursor-pointer"
                 title="View Cart"
               >
                 <ShoppingBag className="w-4 h-4 text-[#e8281a]" />
@@ -234,7 +234,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAdmin, isAdminOpen }) => {
             {/* Single Clean Admin Dashboard Button */}
             <button
               onClick={onOpenAdmin}
-              className={`relative px-3.5 py-2 rounded-full text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer ${
+              className={`relative px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-full text-xs font-semibold border transition-all flex items-center gap-1 sm:gap-1.5 cursor-pointer ${
                 isAdminOpen
                   ? 'bg-[#1a1a1a] text-white border-[#1a1a1a]'
                   : 'bg-[#1a1a1a] text-white border-[#1a1a1a] hover:bg-[#e8281a] hover:border-[#e8281a]'
@@ -253,10 +253,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAdmin, isAdminOpen }) => {
             {/* Mobile Hamburger Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="xl:hidden p-2 text-[#1a1a1a] hover:bg-[#fff8f0] rounded-lg transition-colors"
+              className="xl:hidden p-1.5 sm:p-2 text-[#1a1a1a] hover:bg-[#fff8f0] rounded-lg transition-colors"
               aria-label="Toggle Menu"
             >
-              {mobileMenuOpen ? <X className="w-6 h-6" /> : <MenuIcon className="w-6 h-6" />}
+              {mobileMenuOpen ? <X className="w-5 h-5 sm:w-6 sm:h-6" /> : <MenuIcon className="w-5 h-5 sm:w-6 sm:h-6" />}
             </button>
           </div>
         </div>

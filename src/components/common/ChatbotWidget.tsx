@@ -1200,12 +1200,14 @@ export const ChatbotWidget: React.FC = () => {
   };
 
   const positionClasses =
-    settings.position === 'left' ? 'left-4 sm:left-6' : 'right-4 sm:right-6';
+    settings.position === 'left' ? 'left-3 sm:left-6' : 'right-3 sm:right-6';
+  const desktopWindowSide =
+    settings.position === 'left' ? 'sm:left-6 sm:right-auto' : 'sm:right-6 sm:left-auto';
 
   return (
     <>
       {/* Floating Launcher Button */}
-      <div className={`fixed bottom-5 ${positionClasses} z-40 flex items-center gap-3`}>
+      <div className={`fixed bottom-4 sm:bottom-5 ${positionClasses} z-40 flex items-center gap-3`}>
         {!isOpen && (
           <button
             onClick={() => setIsOpen(true)}
@@ -1225,12 +1227,12 @@ export const ChatbotWidget: React.FC = () => {
         <button
           onClick={() => setIsOpen(prev => !prev)}
           aria-label="Open Restaurant Chatbot"
-          className="w-14 h-14 sm:w-16 sm:h-16 rounded-full text-white flex items-center justify-center shadow-[0_12px_35px_rgba(232,40,26,0.45)] hover:scale-105 active:scale-95 transition-all cursor-pointer relative"
+          className="w-13 h-13 sm:w-16 sm:h-16 rounded-full text-white flex items-center justify-center shadow-[0_12px_35px_rgba(232,40,26,0.45)] hover:scale-105 active:scale-95 transition-all cursor-pointer relative"
           style={{ backgroundColor: primaryColor }}
         >
-          {isOpen ? <X className="w-6 h-6" /> : <MessageSquare className="w-7 h-7" />}
+          {isOpen ? <X className="w-6 h-6" /> : <MessageSquare className="w-6 h-6 sm:w-7 sm:h-7" />}
           {!isOpen && (
-            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#25D366] border-2 border-white animate-pulse" />
+            <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-[#25D366] border-2 border-white animate-pulse" />
           )}
         </button>
       </div>
@@ -1238,7 +1240,7 @@ export const ChatbotWidget: React.FC = () => {
       {/* Chat Window */}
       {isOpen && (
         <div
-          className={`fixed bottom-24 ${positionClasses} z-50 w-[calc(100vw-2rem)] sm:w-[420px] max-h-[82vh] h-[640px] bg-[#fff8f0] rounded-3xl shadow-[0_25px_70px_rgba(0,0,0,0.28)] border border-[#e0d6c8] flex flex-col overflow-hidden animate-fadeIn`}
+          className={`fixed inset-x-2.5 bottom-3 sm:bottom-24 ${desktopWindowSide} z-50 w-auto sm:w-[420px] h-[calc(100dvh-4.5rem)] sm:h-[640px] max-h-[660px] bg-[#fff8f0] rounded-2xl sm:rounded-3xl shadow-[0_25px_70px_rgba(0,0,0,0.28)] border border-[#e0d6c8] flex flex-col overflow-hidden animate-fadeIn`}
           style={{ fontFamily: "'Poppins', sans-serif" }}
         >
           {/* Header */}

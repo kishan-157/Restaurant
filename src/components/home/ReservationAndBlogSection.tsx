@@ -71,7 +71,7 @@ export const ReservationAndBlogSection: React.FC = () => {
     <>
       {/* ===================== SARAB RESERVATION SECTION (#reservation) ===================== */}
       {websiteSections.showReservation !== false && (
-        <section id="reservation" className="py-18 sm:py-22 bg-[#f9f5f0]">
+        <section id="reservation" className="py-14 sm:py-22 bg-[#f9f5f0] w-full max-w-[100vw] overflow-hidden">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
               <span className="slbl">{locContent.reservationKicker || 'Book a Table'}</span>
@@ -281,7 +281,7 @@ export const ReservationAndBlogSection: React.FC = () => {
 
       {/* ===================== SARAB BLOG SECTION (#blog) ===================== */}
       {websiteSections.showBlog !== false && blogPosts.length > 0 && (
-        <section id="blog" className="py-18 sm:py-22 bg-[#f9f5f0] border-t border-neutral-200/60">
+        <section id="blog" className="py-14 sm:py-22 bg-[#f9f5f0] border-t border-neutral-200/60 w-full max-w-[100vw] overflow-hidden">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
               <span className="slbl">News &amp; Updates</span>
@@ -357,7 +357,7 @@ export const ReservationAndBlogSection: React.FC = () => {
       {websiteSections.showNewsletter !== false && (
         <section
           id="newsletter"
-          className="relative overflow-hidden py-18 sm:py-20 text-center"
+          className="relative w-full max-w-[100vw] overflow-hidden py-14 sm:py-20 text-center"
           style={{
             background: 'linear-gradient(135deg, #e8281a, #8b0000)',
           }}

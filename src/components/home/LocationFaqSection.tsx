@@ -51,7 +51,7 @@ export const LocationFaqSection: React.FC<LocationFaqSectionProps> = ({ onOpenCa
 
   return (
     <>
-      <section id="contact-section" className="py-18 sm:py-22 bg-white">
+      <section id="contact-section" className="py-14 sm:py-22 bg-white w-full max-w-[100vw] overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <span className="slbl">{locContent.kicker || 'Get In Touch'}</span>
@@ -113,11 +113,11 @@ export const LocationFaqSection: React.FC<LocationFaqSectionProps> = ({ onOpenCa
                     <div className="w-10 h-10 rounded-[9px] bg-[#e8281a]/20 text-[#e8281a] flex items-center justify-center shrink-0">
                       <Mail className="w-4 h-4" />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <strong className="block text-[#aaaaaa] text-[11px] uppercase tracking-wider">
                         Email Address
                       </strong>
-                      <span className="text-white text-sm">
+                      <span className="text-white text-sm break-all">
                         {profile.email || 'hello@sarabfood.com'}
                       </span>
                     </div>
@@ -272,7 +272,7 @@ export const LocationFaqSection: React.FC<LocationFaqSectionProps> = ({ onOpenCa
 
       {/* ===================== SARAB FAQ SECTION (#faq) ===================== */}
       {websiteSections.showFaq && faqs.length > 0 && (
-        <section id="faq" className="py-16 bg-[#fff8f0] border-t border-[#fef0dc]">
+        <section id="faq" className="py-14 sm:py-16 bg-[#fff8f0] border-t border-[#fef0dc] w-full max-w-[100vw] overflow-hidden">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-10">
               <span className="slbl">{faqContent.kicker || 'Got Questions?'}</span>

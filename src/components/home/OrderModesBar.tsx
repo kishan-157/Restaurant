@@ -39,10 +39,10 @@ export const OrderModesBar: React.FC = () => {
   };
 
   return (
-    <section id="category" className="py-16 sm:py-20 bg-[#fff8f0]">
+    <section id="category" className="py-14 sm:py-20 bg-[#fff8f0] w-full max-w-[100vw] overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Heading */}
-        <div className="text-center mb-10 sm:mb-12">
+        <div className="text-center mb-8 sm:mb-12">
           <span className="slbl">{menuContent?.categoryKicker || 'What We Offer'}</span>
           <h2 className="stitle">
             {menuContent?.categoryTitle ? (
@@ -61,7 +61,7 @@ export const OrderModesBar: React.FC = () => {
         </div>
 
         {/* Dynamic Sarab Category Cards (.catcard) */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
           {/* All Items Card */}
           <button
             type="button"

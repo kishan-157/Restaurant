@@ -52,7 +52,7 @@ export const OffersSection: React.FC = () => {
   return (
     <section
       id="special"
-      className="relative overflow-hidden py-18 sm:py-22"
+      className="relative w-full max-w-[100vw] overflow-hidden py-14 sm:py-22"
       style={{
         background: 'linear-gradient(135deg, #1a0000 0%, #2d0000 100%)',
       }}
@@ -69,14 +69,14 @@ export const OffersSection: React.FC = () => {
       />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
           {/* Left Column: Customizable Special Deal & Countdown */}
           <div className="lg:col-span-6 space-y-5">
-            <span className="inline-block bg-[#f6a623] text-[#1a1a1a] rounded-md px-4 py-1 text-xs font-bold uppercase tracking-[2px]">
+            <span className="inline-block bg-[#f6a623] text-[#1a1a1a] rounded-md px-3.5 py-1 text-xs font-bold uppercase tracking-[1.5px] sm:tracking-[2px]">
               {deal.badge || 'Limited Time Offer'}
             </span>
 
-            <h2 className="font-heading text-[clamp(2.2rem,5vw,3.7rem)] font-black text-white leading-[1.1]">
+            <h2 className="font-heading text-[clamp(1.9rem,5vw,3.7rem)] font-black text-white leading-[1.12]">
               {deal.titleLine1 || 'Special Burger'}{' '}
               <span className="text-[#f6a623]">{deal.titleHighlight || 'Combo Deal'}</span>
               <br />
@@ -88,9 +88,9 @@ export const OffersSection: React.FC = () => {
             </p>
 
             {/* Countdown Boxes */}
-            <div className="flex items-center gap-3.5 py-2">
-              <div className="text-center bg-white/[0.07] border border-white/12 rounded-xl py-3.5 px-4 min-w-[74px]">
-                <span className="font-heading text-3xl sm:text-4xl font-black text-white block leading-none tabular-nums">
+            <div className="flex flex-wrap items-center gap-2.5 sm:gap-3.5 py-2">
+              <div className="text-center bg-white/[0.07] border border-white/12 rounded-xl py-3 px-3.5 sm:py-3.5 sm:px-4 min-w-[66px] sm:min-w-[74px]">
+                <span className="font-heading text-2xl sm:text-4xl font-black text-white block leading-none tabular-nums">
                   {String(timeLeft.hours).padStart(2, '0')}
                 </span>
                 <span className="text-[10px] uppercase tracking-wider text-white/50 mt-1 block">
@@ -98,8 +98,8 @@ export const OffersSection: React.FC = () => {
                 </span>
               </div>
 
-              <div className="text-center bg-white/[0.07] border border-white/12 rounded-xl py-3.5 px-4 min-w-[74px]">
-                <span className="font-heading text-3xl sm:text-4xl font-black text-white block leading-none tabular-nums">
+              <div className="text-center bg-white/[0.07] border border-white/12 rounded-xl py-3 px-3.5 sm:py-3.5 sm:px-4 min-w-[66px] sm:min-w-[74px]">
+                <span className="font-heading text-2xl sm:text-4xl font-black text-white block leading-none tabular-nums">
                   {String(timeLeft.minutes).padStart(2, '0')}
                 </span>
                 <span className="text-[10px] uppercase tracking-wider text-white/50 mt-1 block">
@@ -107,8 +107,8 @@ export const OffersSection: React.FC = () => {
                 </span>
               </div>
 
-              <div className="text-center bg-white/[0.07] border border-white/12 rounded-xl py-3.5 px-4 min-w-[74px]">
-                <span className="font-heading text-3xl sm:text-4xl font-black text-white block leading-none tabular-nums">
+              <div className="text-center bg-white/[0.07] border border-white/12 rounded-xl py-3 px-3.5 sm:py-3.5 sm:px-4 min-w-[66px] sm:min-w-[74px]">
+                <span className="font-heading text-2xl sm:text-4xl font-black text-white block leading-none tabular-nums">
                   {String(timeLeft.seconds).padStart(2, '0')}
                 </span>
                 <span className="text-[10px] uppercase tracking-wider text-white/50 mt-1 block">
@@ -128,18 +128,20 @@ export const OffersSection: React.FC = () => {
           {/* Right Column: Glowing Deal Image & Pulsing Price Badge */}
           <div className="lg:col-span-6 relative text-center flex items-center justify-center">
             <div
-              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[340px] h-[340px] rounded-full pointer-events-none"
+              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[260px] h-[260px] sm:w-[340px] sm:h-[340px] rounded-full pointer-events-none"
               style={{
                 background: 'radial-gradient(circle, rgba(246, 166, 35, 0.24), transparent 70%)',
               }}
             />
 
-            <div className="relative inline-block">
-              <div className="absolute -top-2 -left-2 sm:top-4 sm:left-4 z-20 bg-[#e8281a] text-white w-[88px] h-[88px] rounded-full flex flex-col items-center justify-center text-center shadow-[0_8px_24px_rgba(232,40,26,0.5)] animate-pulse-badge">
-                <span className="text-[11px] line-through opacity-75">
+            <div className="relative inline-block max-w-full">
+              <div className="absolute top-2 left-2 sm:top-4 sm:left-4 z-20 bg-[#e8281a] text-white w-[76px] h-[76px] sm:w-[88px] sm:h-[88px] rounded-full flex flex-col items-center justify-center text-center shadow-[0_8px_24px_rgba(232,40,26,0.5)] animate-pulse-badge">
+                <span className="text-[10px] sm:text-[11px] line-through opacity-75">
                   {deal.originalPrice || '$24.99'}
                 </span>
-                <span className="text-xl font-black leading-none">{deal.dealPrice || '$17.49'}</span>
+                <span className="text-lg sm:text-xl font-black leading-none">
+                  {deal.dealPrice || '$17.49'}
+                </span>
               </div>
 
               <img
@@ -151,7 +153,7 @@ export const OffersSection: React.FC = () => {
                   (e.currentTarget as HTMLImageElement).src =
                     'https://images.unsplash.com/photo-1586190848861-99aa4a171e90?auto=format&fit=crop&w=800&q=80';
                 }}
-                className="relative z-10 w-full max-w-[420px] rounded-3xl object-cover animate-float-img drop-shadow-[0_28px_56px_rgba(246,166,35,0.28)]"
+                className="relative z-10 w-full max-w-[320px] sm:max-w-[420px] rounded-3xl object-cover animate-float-img drop-shadow-[0_28px_56px_rgba(246,166,35,0.28)]"
               />
             </div>
           </div>

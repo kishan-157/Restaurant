@@ -43,7 +43,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAdmin }) => {
 
   return (
     <>
-      <footer className="bg-[#1a1a1a] text-[#777777] pt-16">
+      <footer className="w-full max-w-[100vw] overflow-hidden bg-[#1a1a1a] text-[#777777] pt-14 sm:pt-16 pb-20 sm:pb-4">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
             {/* Column 1: Sarab Brand & Socials */}
@@ -133,7 +133,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAdmin }) => {
                   <div className="w-[34px] h-[34px] rounded-[7px] bg-[#e8281a]/15 text-[#e8281a] flex items-center justify-center shrink-0">
                     <MapPin className="w-4 h-4" />
                   </div>
-                  <div className="text-[13px] leading-relaxed">
+                  <div className="text-[13px] leading-relaxed break-words min-w-0">
                     <strong className="text-[#bbbbbb] block text-xs">Address</strong>
                     <span>
                       {profile.address}, {profile.city}
@@ -155,7 +155,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAdmin }) => {
                   <div className="w-[34px] h-[34px] rounded-[7px] bg-[#e8281a]/15 text-[#e8281a] flex items-center justify-center shrink-0">
                     <Mail className="w-4 h-4" />
                   </div>
-                  <div className="text-[13px] leading-relaxed">
+                  <div className="text-[13px] leading-relaxed break-all min-w-0">
                     <strong className="text-[#bbbbbb] block text-xs">Email</strong>
                     <span>{profile.email || 'hello@sarabfood.com'}</span>
                   </div>
@@ -173,7 +173,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAdmin }) => {
           </div>
 
           {/* Footer Bottom */}
-          <div className="border-t border-white/[0.06] py-5 mt-12 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#777777]">
+          <div className="border-t border-white/[0.06] py-5 mt-12 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#777777] text-center sm:text-left">
             <p>
               © {new Date().getFullYear()}{' '}
               <span className="text-white font-semibold">{profile.name || 'Sarab'}</span>. All
@@ -198,29 +198,35 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAdmin }) => {
         </div>
       </footer>
 
-      {/* Floating My Cart Pill & Back to Top */}
-      <div className="fixed bottom-5 right-5 z-30 flex items-center gap-2.5">
+      {/* Floating My Cart Pill & Back to Top (Placed opposite Chatbot button so they never overlap on mobile) */}
+      <div
+        className={`fixed bottom-4 sm:bottom-5 ${
+          data.chatbotSettings?.position === 'left'
+            ? 'right-3 sm:right-6'
+            : 'left-3 sm:left-6'
+        } z-30 flex items-center gap-2`}
+      >
+        <button
+          id="btt"
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#1a1a1a] hover:bg-[#e8281a] text-white shadow-lg flex items-center justify-center transition-colors cursor-pointer shrink-0"
+          aria-label="Back to Top"
+        >
+          <ChevronUp className="w-4 h-4 sm:w-5 sm:h-5" />
+        </button>
+
         {orderSettings.enableCartAndCheckout && (
           <button
             onClick={() => setIsCartOpen(true)}
-            className="bg-gradient-to-br from-[#e8281a] to-[#c01e12] text-white rounded-full px-5 py-3 shadow-[0_8px_28px_rgba(232,40,26,0.45)] flex items-center gap-2.5 text-xs font-bold hover:-translate-y-0.5 transition-all cursor-pointer"
+            className="bg-gradient-to-br from-[#e8281a] to-[#c01e12] text-white rounded-full px-3.5 py-2.5 sm:px-5 sm:py-3 shadow-[0_8px_28px_rgba(232,40,26,0.45)] flex items-center gap-2 text-xs font-bold hover:-translate-y-0.5 transition-all cursor-pointer"
           >
-            <ShoppingCart className="w-4 h-4" />
+            <ShoppingCart className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             <span>My Cart</span>
-            <span className="w-5 h-5 rounded-full bg-white text-[#e8281a] flex items-center justify-center text-[11px] font-extrabold tabular-nums">
+            <span className="w-5 h-5 rounded-full bg-white text-[#e8281a] flex items-center justify-center text-[10px] sm:text-[11px] font-extrabold tabular-nums">
               {totalCount}
             </span>
           </button>
         )}
-
-        <button
-          id="btt"
-          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          className="w-11 h-11 rounded-full bg-[#1a1a1a] hover:bg-[#e8281a] text-white shadow-lg flex items-center justify-center transition-colors cursor-pointer"
-          aria-label="Back to Top"
-        >
-          <ChevronUp className="w-5 h-5" />
-        </button>
       </div>
 
       {/* Policy Modal */}

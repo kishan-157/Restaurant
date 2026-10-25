@@ -28,6 +28,7 @@ import {
   SocialLinks,
   SEOSettings,
   ChatbotSettings,
+  AudioSettings,
 } from '../types';
 import { DEFAULT_RESTAURANT_DATA } from '../data/defaultRestaurantData';
 import { SCHEMA_VERSION } from './sqlGenerator';
@@ -156,6 +157,13 @@ class DataProviderService {
               ? parsed.chatbotSettings.chatLogs
               : [],
           },
+          audioSettings: {
+            ...DEFAULT_RESTAURANT_DATA.audioSettings!,
+            ...(parsed.audioSettings || {}),
+            tracks: Array.isArray(parsed.audioSettings?.tracks)
+              ? parsed.audioSettings.tracks
+              : DEFAULT_RESTAURANT_DATA.audioSettings!.tracks,
+          },
           orders: Array.isArray(parsed.orders) ? parsed.orders : [],
           reservations: Array.isArray(parsed.reservations) ? parsed.reservations : [],
           contactMessages: Array.isArray(parsed.contactMessages) ? parsed.contactMessages : [],
@@ -271,6 +279,7 @@ class DataProviderService {
         addonGroups: this.memoryData.addonGroups,
         faqs: this.memoryData.faqs,
         chatbotSettings: this.memoryData.chatbotSettings,
+        audioSettings: this.memoryData.audioSettings,
       };
 
       this.supabaseClient
@@ -600,6 +609,13 @@ class DataProviderService {
               ...b.chatbotSettings,
             };
           }
+          if (b.audioSettings) {
+            this.memoryData.audioSettings = {
+              ...DEFAULT_RESTAURANT_DATA.audioSettings!,
+              ...this.memoryData.audioSettings,
+              ...b.audioSettings,
+            };
+          }
         }
       }
 
@@ -811,6 +827,16 @@ class DataProviderService {
     this.memoryData.chatbotSettings = {
       ...DEFAULT_RESTAURANT_DATA.chatbotSettings!,
       ...(this.memoryData.chatbotSettings || {}),
+      ...settings,
+    };
+    this.saveToLocalStorage();
+    this.pushSiteBundleToSupabase();
+  }
+
+  public updateAudioSettings(settings: Partial<AudioSettings>) {
+    this.memoryData.audioSettings = {
+      ...DEFAULT_RESTAURANT_DATA.audioSettings!,
+      ...(this.memoryData.audioSettings || {}),
       ...settings,
     };
     this.saveToLocalStorage();

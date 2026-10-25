@@ -32,7 +32,7 @@ export const ReviewsSection: React.FC = () => {
     <>
       {/* ===================== SARAB OPENING HOURS SECTION (#hours) ===================== */}
       {websiteSections.showLocationHours && (
-        <section id="hours" className="relative py-18 sm:py-22 bg-[#2d6a4f] overflow-hidden text-white">
+        <section id="hours" className="relative py-14 sm:py-22 bg-[#2d6a4f] w-full max-w-[100vw] overflow-hidden text-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
             <div className="text-center mb-12">
               <span className="slbl" style={{ color: '#a5d6bc' }}>
@@ -119,12 +119,12 @@ export const ReviewsSection: React.FC = () => {
                   <span className="font-semibold text-white">{profile.phone}</span>
                 </div>
 
-                <div className="flex items-center justify-between py-2 text-xs">
-                  <span className="inline-flex items-center gap-2 text-white/80">
+                <div className="flex items-center justify-between py-2 text-xs gap-2">
+                  <span className="inline-flex items-center gap-2 text-white/80 shrink-0">
                     <Mail className="w-3.5 h-3.5 text-[#f6a623]" />
                     <span>Email</span>
                   </span>
-                  <span className="font-semibold text-white">
+                  <span className="font-semibold text-white break-all text-right">
                     {profile.email || 'hello@sarabfood.com'}
                   </span>
                 </div>
@@ -136,7 +136,7 @@ export const ReviewsSection: React.FC = () => {
 
       {/* ===================== SARAB TESTIMONIALS SECTION (#testimonials) ===================== */}
       {websiteSections.showTestimonials && testimonials.length > 0 && (
-        <section id="testimonials" className="py-18 sm:py-22 bg-white">
+        <section id="testimonials" className="py-14 sm:py-22 bg-white w-full max-w-[100vw] overflow-hidden">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
               <span className="slbl">{reviewsContent?.kicker || 'What People Say'}</span>

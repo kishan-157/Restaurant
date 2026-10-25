@@ -109,10 +109,10 @@ export const MenuSection: React.FC = () => {
   const menuContent = data.sectionContents?.menu || DEFAULT_RESTAURANT_DATA.sectionContents!.menu;
 
   return (
-    <section id="menu" className="py-18 sm:py-22 bg-[#f9f5f0]">
+    <section id="menu" className="py-14 sm:py-22 bg-[#f9f5f0] w-full max-w-[100vw] overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Sarab Section Header */}
-        <div className="text-center mb-10">
+        <div className="text-center mb-8 sm:mb-10">
           <span className="slbl">{menuContent.kicker || "What's Cooking"}</span>
           <h2 className="stitle">
             {menuContent.title ? (
@@ -130,9 +130,9 @@ export const MenuSection: React.FC = () => {
         </div>
 
         {/* Sarab Filter Buttons & Search Row (Touch-Friendly on Mobile) */}
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-9">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-3.5 sm:gap-4 mb-8 sm:mb-9 w-full max-w-full">
           {/* Category Filter Pills (.mfilt) */}
-          <div className="w-full md:w-auto flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 md:flex-wrap justify-start md:justify-center">
+          <div className="w-full max-w-full md:w-auto flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 md:pb-0 md:flex-wrap justify-start md:justify-center">
             <button
               type="button"
               onClick={() => setSelectedCategory('all')}
@@ -318,24 +318,24 @@ export const MenuSection: React.FC = () => {
       {detailItem && (
         <div
           id="menuPop"
-          className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4"
           onClick={() => setDetailItem(null)}
         >
           <div
-            className="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl relative animate-fadeIn"
+            className="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full max-h-[90dvh] overflow-y-auto shadow-2xl relative animate-fadeIn"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Close Button */}
             <button
               onClick={() => setDetailItem(null)}
-              className="absolute top-3.5 right-3.5 z-10 w-9 h-9 rounded-full bg-black/60 hover:bg-[#e8281a] text-white flex items-center justify-center transition-colors cursor-pointer"
+              className="absolute top-3 right-3 z-10 w-9 h-9 rounded-full bg-black/60 hover:bg-[#e8281a] text-white flex items-center justify-center transition-colors cursor-pointer"
               aria-label="Close Dish Popup"
             >
               <X className="w-4 h-4" />
             </button>
 
             {/* Dish Image */}
-            <div className="h-56 bg-[#fef0dc] overflow-hidden">
+            <div className="h-48 sm:h-56 bg-[#fef0dc] overflow-hidden">
               <img
                 src={
                   detailItem.imageUrl ||
@@ -348,24 +348,24 @@ export const MenuSection: React.FC = () => {
             </div>
 
             {/* Dish Details Body */}
-            <div className="p-6 space-y-4">
+            <div className="p-4 sm:p-6 space-y-3.5 sm:space-y-4">
               <div className="flex items-start justify-between gap-3">
-                <div>
+                <div className="min-w-0">
                   <span className="text-xs font-bold uppercase tracking-wider text-[#f6a623] block">
                     {getCategoryName(detailItem.categoryId)}
                   </span>
-                  <h3 className="font-heading text-2xl font-black text-[#1a1a1a]">
+                  <h3 className="font-heading text-xl sm:text-2xl font-black text-[#1a1a1a] break-words">
                     {detailItem.name}
                   </h3>
                 </div>
-                <div className="font-heading text-2xl font-black text-[#e8281a] shrink-0">
+                <div className="font-heading text-xl sm:text-2xl font-black text-[#e8281a] shrink-0">
                   {profile.currencySymbol}
                   {(detailItem.price * detailQty).toFixed(2)}
                 </div>
               </div>
 
               {/* Stars & Meta */}
-              <div className="flex flex-wrap items-center gap-4 text-xs text-[#777777]">
+              <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs text-[#777777]">
                 <span className="inline-flex items-center gap-1 text-[#f6a623] font-semibold">
                   <Star className="w-3.5 h-3.5 fill-current" /> {detailItem.rating ?? 4.9} (
                   {detailItem.reviewsCount ?? 128} reviews)
@@ -399,8 +399,8 @@ export const MenuSection: React.FC = () => {
               )}
 
               {/* Quantity Stepper & Add to Cart */}
-              <div className="pt-2 flex items-center justify-between gap-4">
-                <div className="inline-flex items-center gap-3 bg-[#f9f5f0] rounded-full px-3 py-1.5 border border-neutral-200">
+              <div className="pt-2 flex flex-wrap sm:flex-nowrap items-center justify-between gap-3">
+                <div className="inline-flex items-center gap-2.5 bg-[#f9f5f0] rounded-full px-3 py-1.5 border border-neutral-200">
                   <button
                     type="button"
                     onClick={() => setDetailQty((q) => Math.max(1, q - 1))}
@@ -420,7 +420,7 @@ export const MenuSection: React.FC = () => {
                   </button>
                 </div>
 
-                <div className="flex items-center gap-2 flex-1">
+                <div className="flex items-center gap-2 flex-1 min-w-[180px]">
                   {variants.some((v) => v.menuItemId === detailItem.id && v.isAvailable) && (
                     <button
                       type="button"
@@ -429,7 +429,7 @@ export const MenuSection: React.FC = () => {
                         setDetailItem(null);
                         setCustomizingItem(itemToCustomize);
                       }}
-                      className="px-4 py-3 rounded-full border border-[#e8281a] text-[#e8281a] hover:bg-[#fff8f0] text-xs font-semibold transition-colors cursor-pointer"
+                      className="px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-full border border-[#e8281a] text-[#e8281a] hover:bg-[#fff8f0] text-xs font-semibold transition-colors cursor-pointer"
                     >
                       Options
                     </button>
@@ -444,7 +444,7 @@ export const MenuSection: React.FC = () => {
                       setDetailItem(null);
                       setIsCartOpen(true);
                     }}
-                    className="btn-red flex-1 justify-center py-3 text-sm"
+                    className="btn-red flex-1 justify-center py-2.5 sm:py-3 text-xs sm:text-sm"
                   >
                     <ShoppingCart className="w-4 h-4" />
                     <span>Add to Cart</span>

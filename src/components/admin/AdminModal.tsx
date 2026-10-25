@@ -32,6 +32,7 @@ import { AdminDatabaseSetup } from './tabs/AdminDatabaseSetup';
 import { AdminBackupExport } from './tabs/AdminBackupExport';
 import { AdminHelpGuide } from './tabs/AdminHelpGuide';
 import { AdminChatbot } from './tabs/AdminChatbot';
+import { AdminAudioStudio } from './tabs/AdminAudioStudio';
 
 interface AdminModalProps {
   isOpen: boolean;
@@ -172,6 +173,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
     chatbot: {
       title: 'Restaurant Smart Chatbot Studio',
       subtitle: 'Customize automatic website Q&A replies, in-chat order confirmation, live order status tracking & quick buttons',
+    },
+    audio: {
+      title: 'Website Welcome Audio & Voice Studio',
+      subtitle: 'Upload MP3 files, record your own voice, or set automatic Hindi/Gujarati/English voice announcements with Skip & Listen controls',
     },
     database: {
       title: 'Supabase Real-Time Cloud Sync',
@@ -371,6 +376,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
                       )
                         setActiveTab('content');
                       else if (q.includes('chat') || q.includes('bot')) setActiveTab('chatbot');
+                      else if (q.includes('audio') || q.includes('music') || q.includes('voice') || q.includes('sound'))
+                        setActiveTab('audio');
                       else if (q.includes('color') || q.includes('theme')) setActiveTab('branding');
                       else if (q.includes('supa') || q.includes('sql') || q.includes('sync'))
                         setActiveTab('database');
@@ -456,6 +463,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
                 {activeTab === 'socials' && <AdminSocials />}
                 {activeTab === 'seo' && <AdminSEO />}
                 {activeTab === 'chatbot' && <AdminChatbot showToast={showToast} />}
+                {activeTab === 'audio' && <AdminAudioStudio showToast={showToast} />}
                 {activeTab === 'database' && <AdminDatabaseSetup />}
                 {activeTab === 'backup' && <AdminBackupExport />}
                 {activeTab === 'help' && <AdminHelpGuide />}

@@ -45,17 +45,17 @@ export const HeroSection: React.FC = () => {
       {/* ===================== SARAB HERO SECTION (#hero) ===================== */}
       <section
         id="hero"
-        className="relative overflow-hidden bg-[#fff8f0] min-h-[84vh] flex items-center py-12 lg:py-20"
+        className="relative w-full max-w-[100vw] overflow-hidden bg-[#fff8f0] min-h-[80vh] sm:min-h-[84vh] flex items-center py-10 sm:py-12 lg:py-20"
       >
         {/* Floating Soft Radial Shapes */}
         <div
-          className="absolute -top-24 -right-20 w-[480px] h-[480px] rounded-full pointer-events-none animate-float-slow"
+          className="absolute -top-24 -right-20 w-[320px] sm:w-[480px] h-[320px] sm:h-[480px] rounded-full pointer-events-none animate-float-slow"
           style={{
             background: 'radial-gradient(circle, rgba(232, 40, 26, 0.07), transparent 70%)',
           }}
         />
         <div
-          className="absolute -bottom-12 left-[8%] w-[280px] h-[280px] rounded-full pointer-events-none animate-float-slow"
+          className="absolute -bottom-12 left-[5%] w-[220px] sm:w-[280px] h-[220px] sm:h-[280px] rounded-full pointer-events-none animate-float-slow"
           style={{
             background: 'radial-gradient(circle, rgba(246, 166, 35, 0.09), transparent 70%)',
           }}
@@ -64,19 +64,19 @@ export const HeroSection: React.FC = () => {
         {/* Giant Watermark Background Text */}
         <div
           aria-hidden="true"
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[22vw] font-black font-heading text-black/[0.035] pointer-events-none select-none whitespace-nowrap leading-none"
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[22vw] font-black font-heading text-black/[0.035] pointer-events-none select-none whitespace-nowrap leading-none max-w-full overflow-hidden"
         >
           {hero.watermarkText || 'FOOD'}
         </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-10 lg:gap-12 items-center">
             {/* Left Column: Sarab Badge, Display Title, Clean Actions & 4 Stats */}
-            <div className="lg:col-span-6 space-y-6">
+            <div className="lg:col-span-6 space-y-5 sm:space-y-6 min-w-0">
               {/* Pill Badge */}
-              <div className="inline-flex items-center gap-2.5 bg-white rounded-full py-1.5 pl-1.5 pr-4 shadow-[0_4px_20px_rgba(0,0,0,0.08)]">
+              <div className="inline-flex items-center gap-2 sm:gap-2.5 max-w-full bg-white rounded-full py-1.5 pl-1.5 pr-3.5 sm:pr-4 shadow-[0_4px_20px_rgba(0,0,0,0.08)]">
                 <div
-                  className="w-[30px] h-[30px] rounded-full flex items-center justify-center text-white"
+                  className="w-[28px] h-[28px] sm:w-[30px] sm:h-[30px] rounded-full flex items-center justify-center text-white shrink-0"
                   style={{
                     background: `linear-gradient(135deg, ${profile.primaryColor || '#e8281a'}, ${
                       profile.secondaryColor || '#f6a623'
@@ -85,13 +85,13 @@ export const HeroSection: React.FC = () => {
                 >
                   <Star className="w-3.5 h-3.5 fill-white" />
                 </div>
-                <span className="text-xs font-semibold text-[#1a1a1a]">
+                <span className="text-[11px] sm:text-xs font-semibold text-[#1a1a1a] truncate">
                   {hero.kicker || '#1 Rated Fast Food Restaurant in New York'}
                 </span>
               </div>
 
               {/* Headline */}
-              <h1 className="font-heading text-[clamp(2.4rem,5.2vw,4.4rem)] font-black text-[#1a1a1a] leading-[1.1]">
+              <h1 className="font-heading text-[clamp(2rem,7.5vw,4.4rem)] font-black text-[#1a1a1a] leading-[1.12] break-words">
                 {hero.titlePrefix || 'Delicious'}{' '}
                 <span
                   className="relative inline-block z-10 after:content-[''] after:absolute after:bottom-1 after:left-0 after:right-0 after:h-2 after:bg-[#e8281a]/15 after:rounded-sm after:-z-10"
@@ -104,20 +104,20 @@ export const HeroSection: React.FC = () => {
               </h1>
 
               {/* Description */}
-              <p className="text-[#666666] text-sm sm:text-base leading-[1.8] max-w-[480px]">
+              <p className="text-[#666666] text-xs sm:text-base leading-[1.75] sm:leading-[1.8] max-w-[480px]">
                 {hero.description || profile.description}
               </p>
 
               {/* Streamlined CTA Buttons */}
-              <div className="flex flex-wrap items-center gap-3.5 pt-1">
-                <a href="#menu" className="btn-red">
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                <a href="#menu" className="btn-red text-xs sm:text-sm py-3 px-6 sm:py-3.5 sm:px-8">
                   <Utensils className="w-4 h-4" />
                   <span>{hero.primaryButtonText || 'Explore Menu'}</span>
                 </a>
 
                 <a
                   href="#reservation"
-                  className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full bg-white hover:bg-[#1a1a1a] text-[#1a1a1a] hover:text-white border border-neutral-200 text-sm font-semibold shadow-xs transition-all"
+                  className="inline-flex items-center gap-2 px-5 py-3 sm:px-6 sm:py-3.5 rounded-full bg-white hover:bg-[#1a1a1a] text-[#1a1a1a] hover:text-white border border-neutral-200 text-xs sm:text-sm font-semibold shadow-xs transition-all"
                 >
                   <CalendarCheck className="w-4 h-4 text-[#e8281a]" />
                   <span>{hero.secondaryButtonText || 'Book a Table'}</span>
@@ -125,15 +125,15 @@ export const HeroSection: React.FC = () => {
               </div>
 
               {/* 4 Customizable Stats Row */}
-              <div className="pt-4 flex flex-wrap items-center gap-5 sm:gap-6">
+              <div className="pt-3 sm:pt-4 grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-4 sm:gap-6">
                 {highlights.map((stat, idx) => (
                   <React.Fragment key={idx}>
                     {idx > 0 && <div className="w-px h-9 bg-[#dddddd] hidden sm:block" />}
                     <div>
-                      <span className="font-heading text-2xl sm:text-3xl font-black text-[#1a1a1a] block leading-none">
+                      <span className="font-heading text-xl sm:text-3xl font-black text-[#1a1a1a] block leading-none">
                         {stat.title}
                       </span>
-                      <small className="text-[11px] text-[#888888] uppercase tracking-wider">
+                      <small className="text-[10px] sm:text-[11px] text-[#888888] uppercase tracking-wider">
                         {stat.label}
                       </small>
                     </div>
@@ -143,11 +143,11 @@ export const HeroSection: React.FC = () => {
             </div>
 
             {/* Right Column: Circular Hero Image + 3 Customizable Floating Cards */}
-            <div className="lg:col-span-6">
-              <div className="relative mx-auto max-w-[460px] flex items-center justify-center">
+            <div className="lg:col-span-6 w-full min-w-0">
+              <div className="relative mx-auto w-full max-w-[310px] sm:max-w-[460px] flex items-center justify-center">
                 {/* Circular Showcase */}
                 <div
-                  className="w-[290px] h-[290px] sm:w-[410px] sm:h-[410px] lg:w-[450px] lg:h-[450px] rounded-full flex items-center justify-center relative shadow-[0_28px_76px_rgba(232,40,26,0.14)]"
+                  className="w-[260px] h-[260px] sm:w-[410px] sm:h-[410px] lg:w-[450px] lg:h-[450px] rounded-full flex items-center justify-center relative shadow-[0_28px_76px_rgba(232,40,26,0.14)]"
                   style={{
                     background: 'radial-gradient(circle at 40% 40%, #fff8f0, #ffe5c8)',
                   }}
@@ -166,45 +166,45 @@ export const HeroSection: React.FC = () => {
                 </div>
 
                 {/* Floating Card 1 */}
-                <div className="absolute top-4 left-0 sm:-left-3 bg-white rounded-xl py-2.5 px-3.5 shadow-[0_8px_32px_rgba(0,0,0,0.12)] flex items-center gap-2.5 animate-float-badge-1">
-                  <div className="w-9 h-9 rounded-lg bg-[#e8281a]/12 text-[#e8281a] flex items-center justify-center">
-                    <Flame className="w-4 h-4 fill-current" />
+                <div className="absolute top-2 left-0 sm:top-4 sm:-left-3 bg-white rounded-xl py-2 px-2.5 sm:py-2.5 sm:px-3.5 shadow-[0_8px_32px_rgba(0,0,0,0.12)] flex items-center gap-2 animate-float-badge-1">
+                  <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-lg bg-[#e8281a]/12 text-[#e8281a] flex items-center justify-center shrink-0">
+                    <Flame className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current" />
                   </div>
                   <div className="text-left">
-                    <span className="font-bold text-xs sm:text-sm text-[#1a1a1a] block leading-none">
+                    <span className="font-bold text-[11px] sm:text-sm text-[#1a1a1a] block leading-none">
                       {floatingBadges[0]?.title || 'Hot Deal'}
                     </span>
-                    <span className="text-[11px] text-[#888888]">
+                    <span className="text-[9.5px] sm:text-[11px] text-[#888888]">
                       {floatingBadges[0]?.subtitle || '30% off today'}
                     </span>
                   </div>
                 </div>
 
                 {/* Floating Card 2 */}
-                <div className="absolute bottom-8 right-0 sm:-right-4 bg-white rounded-xl py-2.5 px-3.5 shadow-[0_8px_32px_rgba(0,0,0,0.12)] flex items-center gap-2.5 animate-float-badge-2">
-                  <div className="w-9 h-9 rounded-lg bg-[#f6a623]/15 text-[#f6a623] flex items-center justify-center">
-                    <Star className="w-4 h-4 fill-current" />
+                <div className="absolute bottom-4 right-0 sm:bottom-8 sm:-right-4 bg-white rounded-xl py-2 px-2.5 sm:py-2.5 sm:px-3.5 shadow-[0_8px_32px_rgba(0,0,0,0.12)] flex items-center gap-2 animate-float-badge-2">
+                  <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-lg bg-[#f6a623]/15 text-[#f6a623] flex items-center justify-center shrink-0">
+                    <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current" />
                   </div>
                   <div className="text-left">
-                    <span className="font-bold text-xs sm:text-sm text-[#1a1a1a] block leading-none">
+                    <span className="font-bold text-[11px] sm:text-sm text-[#1a1a1a] block leading-none">
                       {floatingBadges[1]?.title || '4.9/5'}
                     </span>
-                    <span className="text-[11px] text-[#888888]">
+                    <span className="text-[9.5px] sm:text-[11px] text-[#888888]">
                       {floatingBadges[1]?.subtitle || '2k+ reviews'}
                     </span>
                   </div>
                 </div>
 
                 {/* Floating Card 3 */}
-                <div className="absolute top-[36%] right-0 sm:-right-6 bg-white rounded-xl py-2.5 px-3.5 shadow-[0_8px_32px_rgba(0,0,0,0.12)] flex items-center gap-2.5 animate-float-badge-3">
-                  <div className="w-9 h-9 rounded-lg bg-[#2d6a4f]/12 text-[#2d6a4f] flex items-center justify-center">
-                    <Clock className="w-4 h-4" />
+                <div className="absolute top-[36%] right-0 sm:-right-6 bg-white rounded-xl py-2 px-2.5 sm:py-2.5 sm:px-3.5 shadow-[0_8px_32px_rgba(0,0,0,0.12)] flex items-center gap-2 animate-float-badge-3">
+                  <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-lg bg-[#2d6a4f]/12 text-[#2d6a4f] flex items-center justify-center shrink-0">
+                    <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   </div>
                   <div className="text-left">
-                    <span className="font-bold text-xs sm:text-sm text-[#1a1a1a] block leading-none">
+                    <span className="font-bold text-[11px] sm:text-sm text-[#1a1a1a] block leading-none">
                       {floatingBadges[2]?.title || '20 min'}
                     </span>
-                    <span className="text-[11px] text-[#888888]">
+                    <span className="text-[9.5px] sm:text-[11px] text-[#888888]">
                       {floatingBadges[2]?.subtitle || 'Fast delivery'}
                     </span>
                   </div>
@@ -217,14 +217,14 @@ export const HeroSection: React.FC = () => {
 
       {/* ===================== SARAB RED MARQUEE STRIP (.mqsec) ===================== */}
       <div
-        className="py-3.5 overflow-hidden select-none"
+        className="w-full max-w-[100vw] py-3 sm:py-3.5 overflow-hidden select-none relative"
         style={{ backgroundColor: profile.primaryColor || '#e8281a' }}
       >
         <div className="mqtrack">
           {[...marqueeItems, ...marqueeItems, ...marqueeItems].map((item, index) => (
             <div
               key={index}
-              className="inline-flex items-center gap-3 text-white text-sm font-medium"
+              className="inline-flex items-center gap-3 text-white text-xs sm:text-sm font-medium"
             >
               <span className="w-2 h-2 rounded-full bg-white/55 inline-block" />
               <span>{item}</span>
