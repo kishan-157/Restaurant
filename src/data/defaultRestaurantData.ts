@@ -760,6 +760,163 @@ export const DEFAULT_RESTAURANT_DATA: RestaurantDatabaseBundle = {
         'All dishes are prepared fresh to order. Free delivery applies on orders above $25 within our service zone.',
     },
   },
+  chatbotSettings: {
+    enabled: true,
+    botName: 'Sarab Order & Support Bot',
+    botSubtitle: 'Instant Replies • Order & Track Live',
+    position: 'right',
+    defaultLanguage: 'en',
+    useBrandColor: true,
+    customColor: '#e8281a',
+    welcomeMessageEn:
+      'Hello! 👋 Welcome to Sarab Fast Food & Dining. Ask me anything about our menu, prices, offers, timings — or place an order and track your live order status right here!',
+    welcomeMessageHi:
+      'नमस्ते! 👋 Sarab रेस्टोरेंट में आपका स्वागत है। आप यहाँ मेनू, कीमतें, ऑफर्स पूछ सकते हैं, तुरंत ऑर्डर कन्फर्म कर सकते हैं या अपना लाइव ऑर्डर स्टेटस चेक कर सकते हैं!',
+    welcomeMessageGu:
+      'નમસ્તે! 👋 Sarab રેસ્ટોરન્ટમાં આપનું સ્વાગત છે. તમે અહીં મેનુ, ભાવ, ઓફર્સ પૂછી શકો છો, ઓર્ડર કન્ફર્મ કરી શકો છો અને લાઈવ ઓર્ડર સ્ટેટસ જોઈ શકો છો!',
+    fallbackMessageEn:
+      'I can help you with our Menu, Dish Prices, Special Offers, Opening Hours, Table Booking, Instant Order Confirmation, or Live Order Status! Tap any quick button below or type a dish name.',
+    fallbackMessageHi:
+      'मैं आपकी मेनू, डिश प्राइस, ऑफर्स, टाइमिंग, टेबल बुकिंग, ऑर्डर कन्फर्म करने और ऑर्डर स्टेटस चेक करने में मदद कर सकता हूँ! नीचे दिए गए बटन दबाएं या डिश का नाम लिखें।',
+    fallbackMessageGu:
+      'હું તમને મેનુ, વાનગીના ભાવ, ઓફર્સ, સમય, ટેબલ બુકિંગ, ઓર્ડર કન્ફર્મ કરવા અને ઓર્ડર સ્ટેટસ જાણવામાં મદદ કરી શકું છું! નીચેના બટન દબાવો અથવા વાનગીનું નામ લખો.',
+    orderConfirmationNote:
+      'Your order has been sent directly to our kitchen! Keep your Order ID handy to track live preparation and delivery status.',
+    enableOrderPlacement: true,
+    enableOrderStatusLookup: true,
+    enableTableBooking: true,
+    enableDishCards: true,
+    enableWhatsAppHandoff: true,
+    autoOpenDelaySeconds: 0,
+    whatsappSupportNumber: '919876543210',
+    whatsappFallbackPromptEn:
+      'I couldn’t find an exact automatic answer for that. Click below to send your question directly to our Restaurant Manager on WhatsApp for an instant reply!',
+    whatsappFallbackPromptHi:
+      'मुझे इस सवाल का सटीक ऑटोमैटिक जवाब नहीं मिला। तुरंत जवाब पाने के लिए नीचे क्लिक करके अपना सवाल सीधे हमारे रेस्तरां मैनेजर को WhatsApp पर भेजें!',
+    whatsappFallbackPromptGu:
+      'મને આ પ્રશ્નનો ચોક્કસ ઓટોમેટિક જવાબ મળ્યો નથી. તુરંત જવાબ મેળવવા માટે નીચે ક્લિક કરીને તમારો પ્રશ્ન સીધો અમારા રેસ્ટોરન્ટ મેનેજરને WhatsApp પર મોકલો!',
+    autoShowWhatsAppOnUnanswered: true,
+    autoRedirectToWhatsAppOnUnanswered: false,
+    enableLocationSharing: true,
+    customLocationTitle: 'Sarab Imperial Dining & Wood-Fired Kitchen',
+    customLocationAddress: 'Plot 42, Gourmet Boulevard, Near Heritage Square, Mumbai 400001',
+    customLocationLandmark: 'Opposite Grand Heritage Plaza • Free Valet Parking Available',
+    customLocationMapsUrl: 'https://maps.google.com/?q=18.9220,72.8347',
+    customLatitude: '18.9220',
+    customLongitude: '72.8347',
+    quickReplies: [
+      {
+        id: 'qr-order-now',
+        labelEn: '⚡ Order in Chat',
+        labelHi: '⚡ चैट में ऑर्डर करें',
+        labelGu: '⚡ ચેટમાં ઓર્ડર કરો',
+        action: 'order_now',
+        isActive: true,
+      },
+      {
+        id: 'qr-track-order',
+        labelEn: '📦 Track Order Status',
+        labelHi: '📦 ऑर्डर स्टेटस देखें',
+        labelGu: '📦 ઓર્ડર સ્ટેટસ જુઓ',
+        action: 'order_status',
+        isActive: true,
+      },
+      {
+        id: 'qr-menu',
+        labelEn: '🍔 Full Menu & Prices',
+        labelHi: '🍔 पूरा मेनू और रेट',
+        labelGu: '🍔 સંપૂર્ણ મેનુ અને ભાવ',
+        action: 'menu',
+        isActive: true,
+      },
+      {
+        id: 'qr-bestsellers',
+        labelEn: '⭐ Best Sellers',
+        labelHi: '⭐ बेस्टसेलर डिश',
+        labelGu: '⭐ બેસ્ટસેલર વાનગી',
+        action: 'bestsellers',
+        isActive: true,
+      },
+      {
+        id: 'qr-offers',
+        labelEn: '🔥 Special Offers',
+        labelHi: '🔥 स्पेशल ऑफर्स',
+        labelGu: '🔥 સ્પેશિયલ ઓફર્સ',
+        action: 'offers',
+        isActive: true,
+      },
+      {
+        id: 'qr-book-table',
+        labelEn: '🪑 Book a Table',
+        labelHi: '🪑 टेबल बुक करें',
+        labelGu: '🪑 ટેબલ બુક કરો',
+        action: 'book_table',
+        isActive: true,
+      },
+      {
+        id: 'qr-hours',
+        labelEn: '📍 Location & Timings',
+        labelHi: '📍 लोकेशन और समय',
+        labelGu: '📍 લોકેશન અને સમય',
+        action: 'hours',
+        isActive: true,
+      },
+      {
+        id: 'qr-delivery',
+        labelEn: '🛵 Delivery Info',
+        labelHi: '🛵 डिलीवरी जानकारी',
+        labelGu: '🛵 ડિલિવરી માહિતી',
+        action: 'delivery',
+        isActive: true,
+      },
+    ],
+    customQAs: [
+      {
+        id: 'qa-party-catering',
+        questionTitle: 'Birthday Party & Bulk Catering',
+        keywords: 'party, birthday, catering, bulk order, event, anniversary, celebration',
+        answerEn:
+          '🎉 Yes! We host birthday parties, corporate lunches, and provide custom bulk catering for 10 to 200+ guests. You can book a table right here in chat or use our Event Catering form on the website!',
+        answerHi:
+          '🎉 हाँ! हम बर्थडे पार्टी, कॉर्पोरेट लंच और 10 से 200+ मेहमानों के लिए बल्क कैटरिंग की सुविधा देते हैं। आप यहीं चैट में टेबल बुक कर सकते हैं!',
+        answerGu:
+          '🎉 હા! અમે બર્થડે પાર્ટી, કોર્પોરેટ લંચ અને 10 થી 200+ મહેમાનો માટે બલ્ક કેટરિંગ કરીએ છીએ. તમે અહીં ચેટમાં જ ટેબલ બુક કરી શકો છો!',
+        attachLocationCard: false,
+        attachWhatsAppButton: true,
+        isActive: true,
+      },
+      {
+        id: 'qa-halal-fresh',
+        questionTitle: 'Food Quality, Freshness & Preparation',
+        keywords: 'fresh, quality, halal, hygiene, oil, ingredients, organic',
+        answerEn:
+          '✅ 100% of our dishes are prepared fresh to order using farm-fresh vegetables, premium certified meats, and 48-hour fermented sourdough crusts with zero artificial preservatives.',
+        answerHi:
+          '✅ हमारे सभी पकवान 100% ताज़ा सामग्री और उच्चतम हाइजीन मानकों के साथ ऑर्डर मिलने पर ही तैयार किए जाते हैं।',
+        answerGu:
+          '✅ અમારી તમામ વાનગીઓ 100% તાજી સામગ્રી અને શ્રેષ્ઠ હાઈજીન સાથે ઓર્ડર મળ્યા પછી જ બનાવવામાં આવે છે.',
+        attachLocationCard: false,
+        attachWhatsAppButton: false,
+        isActive: true,
+      },
+      {
+        id: 'qa-payment-methods',
+        questionTitle: 'Payment Options (UPI, Cash, Card)',
+        keywords: 'payment, pay, upi, gpay, phonepe, card, cash, cod, cash on delivery',
+        answerEn:
+          '💳 We accept Cash on Delivery (COD), UPI / QR Scan, Credit & Debit Cards, and Digital Wallets on both Delivery and Takeaway orders.',
+        answerHi:
+          '💳 हम कैश ऑन डिलीवरी (COD), UPI (GPay/PhonePe/Paytm), और सभी डेबिट/क्रेडिट कार्ड स्वीकार करते हैं।',
+        answerGu:
+          '💳 અમે કેશ ઓન ડિલિવરી (COD), UPI (GPay/PhonePe/Paytm), અને તમામ ડેબિટ/ક્રેડિટ કાર્ડ સ્વીકારીએ છીએ.',
+        attachLocationCard: false,
+        attachWhatsAppButton: false,
+        isActive: true,
+      },
+    ],
+    unansweredQuestions: [],
+    chatLogs: [],
+  },
   // Zero fake orders or inquiries — 100% real-time data!
   orders: [],
   reservations: [],

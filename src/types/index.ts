@@ -460,6 +460,123 @@ export interface PartyInquiry {
   createdAt: string;
 }
 
+export type ChatbotActionType =
+  | 'menu'
+  | 'bestsellers'
+  | 'veg_menu'
+  | 'offers'
+  | 'order_now'
+  | 'order_status'
+  | 'book_table'
+  | 'hours'
+  | 'location'
+  | 'delivery'
+  | 'chefs'
+  | 'faq'
+  | 'custom_query';
+
+export interface ChatbotQuickReply {
+  id: string;
+  labelEn: string;
+  labelHi: string;
+  labelGu: string;
+  action: ChatbotActionType;
+  customQuery?: string;
+  isActive: boolean;
+}
+
+export interface ChatbotCustomQA {
+  id: string;
+  questionTitle: string;
+  keywords: string; // comma-separated trigger words
+  answerEn: string;
+  answerHi?: string;
+  answerGu?: string;
+  attachLocationCard?: boolean;
+  attachWhatsAppButton?: boolean;
+  isActive: boolean;
+}
+
+export interface ChatbotUnansweredQuestion {
+  id: string;
+  questionText: string;
+  language: 'en' | 'hi' | 'gu';
+  askedAt: string;
+  count: number;
+  status: 'pending' | 'resolved';
+  resolvedQAId?: string;
+  sessionId?: string;
+}
+
+export interface ChatbotChatMessageLog {
+  id: string;
+  sender: 'user' | 'bot';
+  text: string;
+  timestamp: string;
+  matchedTopic?: string;
+  isUnanswered?: boolean;
+  locationUrl?: string;
+}
+
+export interface ChatbotSessionLog {
+  id: string;
+  customerLabel: string;
+  customerPhone?: string;
+  startedAt: string;
+  lastMessageAt: string;
+  language: 'en' | 'hi' | 'gu';
+  messagesCount: number;
+  unansweredCount: number;
+  orderPlaced?: boolean;
+  whatsappClicked?: boolean;
+  locationShared?: boolean;
+  messages: ChatbotChatMessageLog[];
+}
+
+export interface ChatbotSettings {
+  enabled: boolean;
+  botName: string;
+  botSubtitle: string;
+  position: 'right' | 'left';
+  defaultLanguage: 'en' | 'hi' | 'gu';
+  useBrandColor: boolean;
+  customColor: string;
+  welcomeMessageEn: string;
+  welcomeMessageHi: string;
+  welcomeMessageGu: string;
+  fallbackMessageEn: string;
+  fallbackMessageHi: string;
+  fallbackMessageGu: string;
+  orderConfirmationNote: string;
+  enableOrderPlacement: boolean;
+  enableOrderStatusLookup: boolean;
+  enableTableBooking: boolean;
+  enableDishCards: boolean;
+  enableWhatsAppHandoff: boolean;
+  autoOpenDelaySeconds: number; // 0 = disabled
+  // WhatsApp Support & Fallback Handoff
+  whatsappSupportNumber?: string;
+  whatsappFallbackPromptEn?: string;
+  whatsappFallbackPromptHi?: string;
+  whatsappFallbackPromptGu?: string;
+  autoShowWhatsAppOnUnanswered?: boolean;
+  autoRedirectToWhatsAppOnUnanswered?: boolean;
+  // Location & Google Maps Settings
+  enableLocationSharing?: boolean;
+  customLocationTitle?: string;
+  customLocationAddress?: string;
+  customLocationLandmark?: string;
+  customLocationMapsUrl?: string;
+  customLatitude?: string;
+  customLongitude?: string;
+  // Quick Replies & Custom Q&As
+  quickReplies: ChatbotQuickReply[];
+  customQAs: ChatbotCustomQA[];
+  // Unanswered Queries & Customer Chat Logs
+  unansweredQuestions?: ChatbotUnansweredQuestion[];
+  chatLogs?: ChatbotSessionLog[];
+}
+
 export interface RestaurantDatabaseBundle {
   version: string;
   exportedAt: string;
@@ -481,6 +598,7 @@ export interface RestaurantDatabaseBundle {
   socials: SocialLinks;
   seo: SEOSettings;
   sectionContents?: SectionContents;
+  chatbotSettings?: ChatbotSettings;
   orders?: Order[];
   reservations?: TableReservation[];
   contactMessages?: ContactMessage[];

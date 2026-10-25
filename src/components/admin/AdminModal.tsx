@@ -31,6 +31,7 @@ import { AdminSEO } from './tabs/AdminSEO';
 import { AdminDatabaseSetup } from './tabs/AdminDatabaseSetup';
 import { AdminBackupExport } from './tabs/AdminBackupExport';
 import { AdminHelpGuide } from './tabs/AdminHelpGuide';
+import { AdminChatbot } from './tabs/AdminChatbot';
 
 interface AdminModalProps {
   isOpen: boolean;
@@ -167,6 +168,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
     seo: {
       title: 'Search Engine Optimization (SEO)',
       subtitle: 'Customize browser title, meta description, keywords, and social share image',
+    },
+    chatbot: {
+      title: 'Restaurant Smart Chatbot Studio',
+      subtitle: 'Customize automatic website Q&A replies, in-chat order confirmation, live order status tracking & quick buttons',
     },
     database: {
       title: 'Supabase Real-Time Cloud Sync',
@@ -365,6 +370,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
                         q.includes('offer')
                       )
                         setActiveTab('content');
+                      else if (q.includes('chat') || q.includes('bot')) setActiveTab('chatbot');
                       else if (q.includes('color') || q.includes('theme')) setActiveTab('branding');
                       else if (q.includes('supa') || q.includes('sql') || q.includes('sync'))
                         setActiveTab('database');
@@ -449,6 +455,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
                 {activeTab === 'ordersettings' && <AdminOrderSettings />}
                 {activeTab === 'socials' && <AdminSocials />}
                 {activeTab === 'seo' && <AdminSEO />}
+                {activeTab === 'chatbot' && <AdminChatbot showToast={showToast} />}
                 {activeTab === 'database' && <AdminDatabaseSetup />}
                 {activeTab === 'backup' && <AdminBackupExport />}
                 {activeTab === 'help' && <AdminHelpGuide />}

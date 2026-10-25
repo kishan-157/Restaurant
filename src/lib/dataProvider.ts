@@ -27,6 +27,7 @@ import {
   ContactMessage,
   SocialLinks,
   SEOSettings,
+  ChatbotSettings,
 } from '../types';
 import { DEFAULT_RESTAURANT_DATA } from '../data/defaultRestaurantData';
 import { SCHEMA_VERSION } from './sqlGenerator';
@@ -139,6 +140,22 @@ class DataProviderService {
           blogPosts: Array.isArray(parsed.blogPosts)
             ? parsed.blogPosts
             : DEFAULT_RESTAURANT_DATA.blogPosts,
+          chatbotSettings: {
+            ...DEFAULT_RESTAURANT_DATA.chatbotSettings!,
+            ...(parsed.chatbotSettings || {}),
+            quickReplies: Array.isArray(parsed.chatbotSettings?.quickReplies)
+              ? parsed.chatbotSettings.quickReplies
+              : DEFAULT_RESTAURANT_DATA.chatbotSettings!.quickReplies,
+            customQAs: Array.isArray(parsed.chatbotSettings?.customQAs)
+              ? parsed.chatbotSettings.customQAs
+              : DEFAULT_RESTAURANT_DATA.chatbotSettings!.customQAs,
+            unansweredQuestions: Array.isArray(parsed.chatbotSettings?.unansweredQuestions)
+              ? parsed.chatbotSettings.unansweredQuestions
+              : [],
+            chatLogs: Array.isArray(parsed.chatbotSettings?.chatLogs)
+              ? parsed.chatbotSettings.chatLogs
+              : [],
+          },
           orders: Array.isArray(parsed.orders) ? parsed.orders : [],
           reservations: Array.isArray(parsed.reservations) ? parsed.reservations : [],
           contactMessages: Array.isArray(parsed.contactMessages) ? parsed.contactMessages : [],
@@ -177,6 +194,9 @@ class DataProviderService {
     }
   }
 
+  private lastLocalMutationAt = 0;
+  private bundlePushTimer: ReturnType<typeof setTimeout> | null = null;
+
   public subscribe(listener: ChangeListener): () => void {
     this.listeners.add(listener);
     return () => {
@@ -199,7 +219,14 @@ class DataProviderService {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public' },
-        () => {
+        (payload) => {
+          // Avoid overwriting local inputs while admin is actively typing/saving site_bundle
+          if (
+            payload.table === 'restaurant_profile' &&
+            Date.now() - this.lastLocalMutationAt < 3000
+          ) {
+            return;
+          }
           this.syncFromSupabase().then((ok) => {
             if (ok) this.notifyListeners();
           });
@@ -210,6 +237,7 @@ class DataProviderService {
 
   // --- LOCAL STORAGE HELPERS ---
   private saveToLocalStorage() {
+    this.lastLocalMutationAt = Date.now();
     safeStorage.setItem(STORAGE_KEY, JSON.stringify(this.memoryData));
     this.notifyListeners();
   }
@@ -219,58 +247,67 @@ class DataProviderService {
     this.notifyListeners();
   }
 
-  // Sync the extended site bundle (sectionContents, chefs, historyTimeline, blogPosts, socials, seo, openingHours, websiteSections, orderSettings) into restaurant_profile.site_bundle
+  // Sync the extended site bundle (sectionContents, chefs, historyTimeline, blogPosts, socials, seo, openingHours, websiteSections, orderSettings, chatbotSettings) into restaurant_profile.site_bundle
   private pushSiteBundleToSupabase() {
     if (!this.supabaseClient || !this.supabaseConfig.isConnected) return;
-    const p = this.memoryData.profile;
-    const siteBundle = {
-      openingHours: this.memoryData.openingHours,
-      websiteSections: this.memoryData.websiteSections,
-      orderSettings: this.memoryData.orderSettings,
-      sectionContents: this.memoryData.sectionContents,
-      chefs: this.memoryData.chefs,
-      historyTimeline: this.memoryData.historyTimeline,
-      blogPosts: this.memoryData.blogPosts,
-      socials: this.memoryData.socials,
-      seo: this.memoryData.seo,
-      addonGroups: this.memoryData.addonGroups,
-      faqs: this.memoryData.faqs,
-    };
+    this.lastLocalMutationAt = Date.now();
+    if (this.bundlePushTimer) {
+      clearTimeout(this.bundlePushTimer);
+    }
+    this.bundlePushTimer = setTimeout(() => {
+      if (!this.supabaseClient || !this.supabaseConfig.isConnected) return;
+      this.lastLocalMutationAt = Date.now();
+      const p = this.memoryData.profile;
+      const siteBundle = {
+        openingHours: this.memoryData.openingHours,
+        websiteSections: this.memoryData.websiteSections,
+        orderSettings: this.memoryData.orderSettings,
+        sectionContents: this.memoryData.sectionContents,
+        chefs: this.memoryData.chefs,
+        historyTimeline: this.memoryData.historyTimeline,
+        blogPosts: this.memoryData.blogPosts,
+        socials: this.memoryData.socials,
+        seo: this.memoryData.seo,
+        addonGroups: this.memoryData.addonGroups,
+        faqs: this.memoryData.faqs,
+        chatbotSettings: this.memoryData.chatbotSettings,
+      };
 
-    this.supabaseClient
-      .from('restaurant_profile')
-      .upsert({
-        id: 'main',
-        name: p.name,
-        tagline: p.tagline,
-        description: p.description,
-        story: p.story,
-        logo_url: p.logoUrl,
-        favicon_url: p.faviconUrl,
-        hero_image_url: p.heroImageUrl,
-        cuisine_type: p.cuisineType,
-        price_range: p.priceRange,
-        phone: p.phone,
-        whatsapp_number: p.whatsappNumber,
-        email: p.email,
-        address: p.address,
-        city: p.city,
-        postal_code: p.postalCode,
-        google_maps_url: p.googleMapsUrl,
-        currency_symbol: p.currencySymbol,
-        currency_code: p.currencyCode,
-        theme_preset: p.themePreset,
-        primary_color: p.primaryColor,
-        secondary_color: p.secondaryColor,
-        accent_color: p.accentColor,
-        font_heading: p.fontHeading,
-        font_body: p.fontBody,
-        site_bundle: siteBundle,
-        updated_at: new Date().toISOString(),
-      })
-      .then(({ error }) => {
-        if (error) console.warn('Supabase profile/bundle sync warning:', error.message);
-      });
+      this.supabaseClient
+        .from('restaurant_profile')
+        .upsert({
+          id: 'main',
+          name: p.name,
+          tagline: p.tagline,
+          description: p.description,
+          story: p.story,
+          logo_url: p.logoUrl,
+          favicon_url: p.faviconUrl,
+          hero_image_url: p.heroImageUrl,
+          cuisine_type: p.cuisineType,
+          price_range: p.priceRange,
+          phone: p.phone,
+          whatsapp_number: p.whatsappNumber,
+          email: p.email,
+          address: p.address,
+          city: p.city,
+          postal_code: p.postalCode,
+          google_maps_url: p.googleMapsUrl,
+          currency_symbol: p.currencySymbol,
+          currency_code: p.currencyCode,
+          theme_preset: p.themePreset,
+          primary_color: p.primaryColor,
+          secondary_color: p.secondaryColor,
+          accent_color: p.accentColor,
+          font_heading: p.fontHeading,
+          font_body: p.fontBody,
+          site_bundle: siteBundle,
+          updated_at: new Date().toISOString(),
+        })
+        .then(({ error }) => {
+          if (error) console.warn('Supabase profile/bundle sync warning:', error.message);
+        });
+    }, 350);
   }
 
   // --- DATA ACCESSORS ---
@@ -556,6 +593,13 @@ class DataProviderService {
           if (b.seo) this.memoryData.seo = { ...this.memoryData.seo, ...b.seo };
           if (Array.isArray(b.addonGroups)) this.memoryData.addonGroups = b.addonGroups;
           if (Array.isArray(b.faqs)) this.memoryData.faqs = b.faqs;
+          if (b.chatbotSettings) {
+            this.memoryData.chatbotSettings = {
+              ...DEFAULT_RESTAURANT_DATA.chatbotSettings!,
+              ...this.memoryData.chatbotSettings,
+              ...b.chatbotSettings,
+            };
+          }
         }
       }
 
@@ -759,6 +803,16 @@ class DataProviderService {
 
   public updateSEO(seo: Partial<SEOSettings>) {
     this.memoryData.seo = { ...this.memoryData.seo, ...seo };
+    this.saveToLocalStorage();
+    this.pushSiteBundleToSupabase();
+  }
+
+  public updateChatbotSettings(settings: Partial<ChatbotSettings>) {
+    this.memoryData.chatbotSettings = {
+      ...DEFAULT_RESTAURANT_DATA.chatbotSettings!,
+      ...(this.memoryData.chatbotSettings || {}),
+      ...settings,
+    };
     this.saveToLocalStorage();
     this.pushSiteBundleToSupabase();
   }

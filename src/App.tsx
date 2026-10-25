@@ -16,6 +16,7 @@ import { CartDrawer } from './components/cart/CartDrawer';
 import { CateringModal } from './components/home/CateringModal';
 import { AdminModal } from './components/admin/AdminModal';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { ChatbotWidget } from './components/common/ChatbotWidget';
 
 const MainLayout: React.FC = () => {
   const { data } = useRestaurant();
@@ -107,6 +108,9 @@ const MainLayout: React.FC = () => {
 
       {/* 10. Sarab Dark Footer + Floating Cart + Back to Top */}
       {data.websiteSections.showFooter && <Footer onOpenAdmin={handleOpenAdmin} />}
+
+      {/* Live Verified Assistant Chatbot Widget */}
+      <ChatbotWidget />
 
       {/* Cart Drawer (WhatsApp & Admin Panel Checkout) */}
       <CartDrawer />
