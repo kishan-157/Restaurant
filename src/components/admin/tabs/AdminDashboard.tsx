@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   ShoppingBag,
   UtensilsCrossed,
@@ -13,6 +13,11 @@ import {
   Users,
   Sparkles,
   Palette,
+  Store,
+  Upload,
+  Trash2,
+  Check,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { useRestaurant } from '../../../context/RestaurantContext';
 import { AdminTabId } from '../AdminSidebar';
@@ -30,8 +35,77 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateTab })
     contactMessages,
     updateOrderStatus,
     updateReservationStatus,
+    updateProfile,
     isConnected,
   } = useRestaurant();
+
+  const [brandName, setBrandName] = useState(data.profile.name || 'Sarab');
+  const [brandTagline, setBrandTagline] = useState(data.profile.tagline || '');
+  const [brandLogoUrl, setBrandLogoUrl] = useState(data.profile.logoUrl || '');
+  const [brandSaved, setBrandSaved] = useState(false);
+  const logoFileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setBrandName(data.profile.name || 'Sarab');
+    setBrandTagline(data.profile.tagline || '');
+    setBrandLogoUrl(data.profile.logoUrl || '');
+  }, [data.profile.name, data.profile.tagline, data.profile.logoUrl]);
+
+  const handleQuickLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_SIZE = 240;
+        let width = img.width;
+        let height = img.height;
+        if (width > height) {
+          if (width > MAX_SIZE) {
+            height = Math.round((height * MAX_SIZE) / width);
+            width = MAX_SIZE;
+          }
+        } else {
+          if (height > MAX_SIZE) {
+            width = Math.round((width * MAX_SIZE) / height);
+            height = MAX_SIZE;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.clearRect(0, 0, width, height);
+          ctx.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/png', 0.92);
+          setBrandLogoUrl(dataUrl);
+          updateProfile({
+            name: brandName.trim() || data.profile.name,
+            tagline: brandTagline,
+            logoUrl: dataUrl,
+          });
+          setBrandSaved(true);
+          setTimeout(() => setBrandSaved(false), 2500);
+        }
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleQuickBrandSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateProfile({
+      name: brandName.trim() || 'Sarab',
+      tagline: brandTagline,
+      logoUrl: brandLogoUrl,
+    });
+    setBrandSaved(true);
+    setTimeout(() => setBrandSaved(false), 2500);
+  };
 
   const currency = data.profile.currencySymbol || '₹';
 
@@ -102,6 +176,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateTab })
 
         <div className="relative z-10 flex flex-wrap items-center gap-3">
           <button
+            onClick={() => onNavigateTab('info')}
+            className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-[#f6a623] hover:bg-[#e09416] text-[#1a1a1a] text-xs font-bold transition-all shadow-lg cursor-pointer"
+          >
+            <Store className="w-4 h-4" />
+            <span>Name, Logo & Hours</span>
+          </button>
+          <button
             onClick={() => onNavigateTab('content')}
             className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-[#e8281a] hover:bg-[#c01f12] text-white text-xs font-semibold transition-all shadow-lg shadow-[#e8281a]/30 cursor-pointer"
           >
@@ -117,6 +198,137 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateTab })
           </button>
         </div>
       </div>
+
+      {/* ===================== INSTANT RESTAURANT NAME & LOGO EDITOR (ON HOME SCREEN) ===================== */}
+      <form
+        onSubmit={handleQuickBrandSave}
+        className="bg-white rounded-3xl p-5 sm:p-6 border-2 border-[#e8281a]/30 shadow-md space-y-4"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#f0e8dc] pb-3.5">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-[#e8281a]/10 text-[#e8281a] flex items-center justify-center">
+              <Store className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm sm:text-base font-black text-[#1a1a1a]">
+                Restaurant Name & Brand Logo Change Karein
+              </h3>
+              <p className="text-[11px] text-[#7a6e65]">
+                Yahan se seedha apne Restaurant ka Naam, Tagline aur Logo photo upload ya change karein
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#e8281a] hover:bg-[#c01f12] text-white text-xs font-bold shadow-sm transition-all cursor-pointer"
+          >
+            {brandSaved && <Check className="w-4 h-4" />}
+            <span>{brandSaved ? 'Name & Logo Saved!' : 'Save Name & Logo'}</span>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
+          {/* Logo Preview + Upload */}
+          <div className="lg:col-span-5 flex items-center gap-4 p-3.5 rounded-2xl bg-[#fff8f0] border border-[#e0d6c8]">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden bg-white border border-[#e0d6c8] flex items-center justify-center shrink-0 shadow-xs">
+              {brandLogoUrl && brandLogoUrl.trim() ? (
+                <img
+                  src={brandLogoUrl}
+                  alt={brandName}
+                  className="w-full h-full object-contain p-1"
+                />
+              ) : (
+                <div
+                  className="w-full h-full flex items-center justify-center text-white"
+                  style={{
+                    background: `linear-gradient(135deg, ${data.profile.primaryColor || '#e8281a'}, ${
+                      data.profile.secondaryColor || '#f6a623'
+                    })`,
+                  }}
+                >
+                  <Flame className="w-7 h-7" />
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2 min-w-0 flex-1">
+              <div className="text-xs font-bold text-[#1a1a1a]">Restaurant Logo Image</div>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  ref={logoFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleQuickLogoUpload}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => logoFileInputRef.current?.click()}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1a1a1a] hover:bg-[#333333] text-white text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>Upload Logo File</span>
+                </button>
+                {brandLogoUrl && brandLogoUrl.trim() && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBrandLogoUrl('');
+                      updateProfile({ logoUrl: '' });
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Remove</span>
+                  </button>
+                )}
+              </div>
+              <input
+                type="text"
+                value={brandLogoUrl.startsWith('data:') ? '' : brandLogoUrl}
+                onChange={(e) => setBrandLogoUrl(e.target.value)}
+                placeholder={
+                  brandLogoUrl.startsWith('data:')
+                    ? 'Uploaded file active (or paste image URL here)'
+                    : 'Or paste direct Logo Image URL...'
+                }
+                className="w-full px-2.5 py-1.5 text-[11px] bg-white border border-[#e0d6c8] rounded-lg focus:outline-none focus:border-[#e8281a]"
+              />
+            </div>
+          </div>
+
+          {/* Restaurant Name & Tagline Inputs */}
+          <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-[#1a1a1a] mb-1.5">
+                Restaurant Name <span className="text-[#e8281a]">*</span>
+              </label>
+              <input
+                type="text"
+                value={brandName}
+                onChange={(e) => setBrandName(e.target.value)}
+                placeholder="Enter your restaurant name..."
+                className="w-full px-3.5 py-2.5 rounded-xl bg-[#fff8f0] border border-[#e0d6c8] text-sm font-bold text-[#1a1a1a] focus:outline-none focus:border-[#e8281a]"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-[#1a1a1a] mb-1.5">
+                Tagline / Subtitle (Below Name)
+              </label>
+              <input
+                type="text"
+                value={brandTagline}
+                onChange={(e) => setBrandTagline(e.target.value)}
+                placeholder="e.g. Fast Food & Family Dining"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-[#fff8f0] border border-[#e0d6c8] text-sm text-[#1a1a1a] focus:outline-none focus:border-[#e8281a]"
+              />
+            </div>
+          </div>
+        </div>
+      </form>
 
       {/* 4 Real-Time KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">

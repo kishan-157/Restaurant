@@ -258,9 +258,19 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
           </button>
 
           <div className="max-w-md w-full bg-white rounded-3xl p-8 md:p-10 border border-[#e0d6c8] shadow-[0_20px_60px_rgba(26,26,26,0.08)]">
-            <div className="w-16 h-16 rounded-2xl bg-[#e8281a] text-white flex items-center justify-center mx-auto mb-6 shadow-lg shadow-[#e8281a]/30">
-              <Flame className="w-8 h-8" />
-            </div>
+            {data.profile.logoUrl && data.profile.logoUrl.trim() ? (
+              <div className="w-16 h-16 rounded-2xl overflow-hidden bg-white border border-[#e0d6c8] p-1 flex items-center justify-center mx-auto mb-6 shadow-md">
+                <img
+                  src={data.profile.logoUrl}
+                  alt={data.profile.name || 'Logo'}
+                  className="w-full h-full object-contain rounded-xl"
+                />
+              </div>
+            ) : (
+              <div className="w-16 h-16 rounded-2xl bg-[#e8281a] text-white flex items-center justify-center mx-auto mb-6 shadow-lg shadow-[#e8281a]/30">
+                <Flame className="w-8 h-8" />
+              </div>
+            )}
             <div className="text-center mb-8">
               <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#e8281a] block mb-1">
                 {data.profile.name || 'Sarab'} Admin Studio
@@ -383,6 +393,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
                       else if (q.includes('chat') || q.includes('bot')) setActiveTab('chatbot');
                       else if (q.includes('audio') || q.includes('music') || q.includes('voice') || q.includes('sound'))
                         setActiveTab('audio');
+                      else if (q.includes('name') || q.includes('logo') || q.includes('phone') || q.includes('hour'))
+                        setActiveTab('info');
                       else if (q.includes('color') || q.includes('theme')) setActiveTab('branding');
                       else if (q.includes('supa') || q.includes('sql') || q.includes('sync'))
                         setActiveTab('database');
@@ -462,8 +474,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
                 {activeTab === 'content' && <AdminSectionContent showToast={showToast} />}
                 {activeTab === 'gallery' && <AdminGallery />}
                 {activeTab === 'sections' && <AdminSections showToast={showToast} />}
-                {activeTab === 'info' && <AdminRestaurantInfo />}
-                {activeTab === 'branding' && <AdminBranding />}
+                {activeTab === 'info' && <AdminRestaurantInfo showToast={showToast} />}
+                {activeTab === 'branding' && <AdminBranding showToast={showToast} />}
                 {activeTab === 'ordersettings' && <AdminOrderSettings />}
                 {activeTab === 'socials' && <AdminSocials />}
                 {activeTab === 'seo' && <AdminSEO />}

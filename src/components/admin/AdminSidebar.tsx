@@ -83,6 +83,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       title: 'Live Operations',
       items: [
         { id: 'dashboard', label: 'Live Overview', icon: LayoutGrid },
+        { id: 'info', label: 'Name, Logo & Hours', icon: Store },
         {
           id: 'orders',
           label: 'Orders & Bookings',
@@ -116,10 +117,9 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     {
       title: 'Website Customization',
       items: [
+        { id: 'branding', label: 'Logo, Theme & Colors', icon: Palette },
         { id: 'content', label: 'All Page Content', icon: FileEdit },
         { id: 'gallery', label: 'Photo Gallery', icon: Images, badge: data.gallery.length },
-        { id: 'info', label: 'Restaurant & Hours', icon: Store },
-        { id: 'branding', label: 'Theme & Colors', icon: Palette },
         { id: 'ordersettings', label: 'Order & WhatsApp', icon: Settings2 },
         { id: 'sections', label: 'Section Visibility', icon: SlidersHorizontal },
         { id: 'socials', label: 'Social Media Links', icon: Share2 },
@@ -150,12 +150,22 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       {/* Brand Header */}
       <div className="p-5 border-b border-white/10 flex items-center justify-between">
         <div className="flex items-center gap-3 min-w-0">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold shadow-md shrink-0"
-            style={{ backgroundColor: data.profile.primaryColor || '#e8281a' }}
-          >
-            <Flame className="w-5 h-5" />
-          </div>
+          {data.profile.logoUrl && data.profile.logoUrl.trim() ? (
+            <div className="w-10 h-10 rounded-xl overflow-hidden bg-white p-0.5 flex items-center justify-center shadow-md shrink-0">
+              <img
+                src={data.profile.logoUrl}
+                alt={data.profile.name || 'Logo'}
+                className="w-full h-full object-contain rounded-lg"
+              />
+            </div>
+          ) : (
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold shadow-md shrink-0"
+              style={{ backgroundColor: data.profile.primaryColor || '#e8281a' }}
+            >
+              <Flame className="w-5 h-5" />
+            </div>
+          )}
           <div className="truncate">
             <span
               className="font-black text-xl tracking-tight text-white block leading-none truncate"

@@ -13,8 +13,6 @@ export const AboutSection: React.FC = () => {
   const mainAboutImg =
     about.mainImageUrl && about.mainImageUrl.trim() !== ''
       ? about.mainImageUrl
-      : profile.logoUrl && profile.logoUrl.trim() !== ''
-      ? profile.logoUrl
       : 'https://preview.themewagon.com/sarab/img/about.jpg';
 
   const secondaryImg =

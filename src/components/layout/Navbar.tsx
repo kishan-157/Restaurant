@@ -40,6 +40,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAdmin, isAdminOpen }) => {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeNav, setActiveNav] = useState('hero');
+  const [logoError, setLogoError] = useState(false);
+
+  useEffect(() => {
+    setLogoError(false);
+  }, [profile.logoUrl]);
 
   const pendingActivityCount = useMemo(() => {
     const pendingOrders = orders.filter((o) => o.status === 'pending').length;
@@ -95,6 +100,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAdmin, isAdminOpen }) => {
     { id: 'contact-section', label: 'Contact', href: '#contact-section' },
   ];
 
+  const hasCustomLogo = Boolean(profile.logoUrl && profile.logoUrl.trim() && !logoError);
+
   return (
     <>
       {/* ===================== SARAB TOP BAR (#topbar) ===================== */}
@@ -147,22 +154,33 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAdmin, isAdminOpen }) => {
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 flex items-center justify-between gap-2">
           {/* Brand Logo (.blogo) */}
           <a href="#hero" className="flex items-center gap-2 sm:gap-2.5 min-w-0 group">
-            <div
-              className="w-9 h-9 sm:w-[44px] sm:h-[44px] rounded-full flex items-center justify-center text-white shadow-[0_4px_15px_rgba(232,40,26,0.35)] group-hover:scale-105 transition-transform shrink-0"
-              style={{
-                background: `linear-gradient(135deg, ${profile.primaryColor || '#e8281a'}, ${
-                  profile.secondaryColor || '#f6a623'
-                })`,
-              }}
-            >
-              <Utensils className="w-4 h-4 sm:w-5 sm:h-5" />
-            </div>
+            {hasCustomLogo ? (
+              <div className="w-9 h-9 sm:w-[44px] sm:h-[44px] rounded-full overflow-hidden flex items-center justify-center bg-white border border-neutral-200 shadow-sm group-hover:scale-105 transition-transform shrink-0">
+                <img
+                  src={profile.logoUrl}
+                  alt={profile.name || 'Restaurant Logo'}
+                  onError={() => setLogoError(true)}
+                  className="w-full h-full object-contain"
+                />
+              </div>
+            ) : (
+              <div
+                className="w-9 h-9 sm:w-[44px] sm:h-[44px] rounded-full flex items-center justify-center text-white shadow-[0_4px_15px_rgba(232,40,26,0.35)] group-hover:scale-105 transition-transform shrink-0"
+                style={{
+                  background: `linear-gradient(135deg, ${profile.primaryColor || '#e8281a'}, ${
+                    profile.secondaryColor || '#f6a623'
+                  })`,
+                }}
+              >
+                <Utensils className="w-4 h-4 sm:w-5 sm:h-5" />
+              </div>
+            )}
             <div className="leading-none min-w-0">
-              <span className="font-heading text-lg sm:text-2xl font-black text-[#1a1a1a] tracking-tight block truncate max-w-[135px] sm:max-w-none">
+              <span className="font-heading text-lg sm:text-2xl font-black text-[#1a1a1a] tracking-tight block truncate max-w-[160px] sm:max-w-none">
                 {profile.name || 'Sarab'}
                 <span style={{ color: profile.primaryColor || '#e8281a' }}>.</span>
               </span>
-              <span className="text-[8px] sm:text-[9px] font-semibold uppercase tracking-[1px] sm:tracking-[2px] text-[#999999] block mt-0.5 truncate max-w-[135px] sm:max-w-none">
+              <span className="text-[8px] sm:text-[9px] font-semibold uppercase tracking-[1px] sm:tracking-[2px] text-[#999999] block mt-0.5 truncate max-w-[160px] sm:max-w-none">
                 {profile.tagline || 'Fast Food & Dining'}
               </span>
             </div>

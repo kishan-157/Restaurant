@@ -11,7 +11,7 @@ export const DEFAULT_RESTAURANT_DATA: RestaurantDatabaseBundle = {
       'Experience bold flavors crafted from premium ingredients. From crispy smash burgers to gourmet wood-fired pizzas — every bite is an adventure worth savoring.',
     story:
       'Founded in 2012 on Flavor Street, Sarab started as a 20-seat diner with one mission: merging gourmet culinary craftsmanship with the speed and joy of modern fast food. Every burger patty is smashed fresh to order, our pizza dough ferments for 48 hours, and our signature sauces are made from scratch daily.',
-    logoUrl: 'https://preview.themewagon.com/sarab/img/about.jpg',
+    logoUrl: '',
     faviconUrl: '',
     heroImageUrl: 'https://preview.themewagon.com/sarab/img/banner-img.jpg',
     cuisineType: '#1 Rated Fast Food & Royal Dining Restaurant',

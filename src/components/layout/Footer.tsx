@@ -46,11 +46,22 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAdmin }) => {
       <footer className="w-full max-w-[100vw] overflow-hidden bg-[#1a1a1a] text-[#777777] pt-14 sm:pt-16 pb-20 sm:pb-4">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
-            {/* Column 1: Sarab Brand & Socials */}
+            {/* Column 1: Brand & Socials */}
             <div>
-              <div className="font-heading text-3xl font-black text-white">
-                {profile.name || 'Sarab'}
-                <span className="text-[#e8281a]">.</span>
+              <div className="flex items-center gap-3">
+                {profile.logoUrl && profile.logoUrl.trim() && (
+                  <div className="w-11 h-11 rounded-full overflow-hidden bg-white p-0.5 flex items-center justify-center shrink-0 shadow-md">
+                    <img
+                      src={profile.logoUrl}
+                      alt={profile.name || 'Logo'}
+                      className="w-full h-full object-contain rounded-full"
+                    />
+                  </div>
+                )}
+                <div className="font-heading text-3xl font-black text-white">
+                  {profile.name || 'Sarab'}
+                  <span style={{ color: profile.primaryColor || '#e8281a' }}>.</span>
+                </div>
               </div>
               <p className="text-[#777777] text-[13.5px] leading-[1.8] mt-2.5">
                 {profile.description}

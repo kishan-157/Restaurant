@@ -278,6 +278,26 @@ class DataProviderService {
     let changed = false;
     const p = this.memoryData.profile;
 
+    // Clear old default interior photo that was previously stored in logoUrl
+    if (p.logoUrl === 'https://preview.themewagon.com/sarab/img/about.jpg') {
+      p.logoUrl = '';
+      changed = true;
+    }
+
+    // Restore any dedicated custom brand identity saved by the restaurant owner
+    try {
+      const savedIdentityRaw = safeStorage.getItem('restaurant_custom_identity_v1');
+      if (savedIdentityRaw) {
+        const savedIdentity = JSON.parse(savedIdentityRaw);
+        if (savedIdentity.name) p.name = savedIdentity.name;
+        if (savedIdentity.tagline !== undefined) p.tagline = savedIdentity.tagline;
+        if (savedIdentity.logoUrl !== undefined) p.logoUrl = savedIdentity.logoUrl;
+        if (savedIdentity.heroImageUrl !== undefined) p.heroImageUrl = savedIdentity.heroImageUrl;
+      }
+    } catch {
+      // ignore
+    }
+
     if (p.currencySymbol === '$' || p.currencyCode === 'USD' || !p.currencySymbol) {
       p.currencySymbol = '₹';
       p.currencyCode = 'INR';
@@ -478,7 +498,45 @@ class DataProviderService {
           updated_at: new Date().toISOString(),
         })
         .then(({ error }) => {
-          if (error) console.warn('Supabase profile/bundle sync warning:', error.message);
+          if (error && this.supabaseClient) {
+            console.warn('Supabase profile/bundle sync warning, trying fallback update:', error.message);
+            // Fallback for older schema without theme_preset or site_bundle columns
+            this.supabaseClient
+              .from('restaurant_profile')
+              .upsert({
+                id: 'main',
+                name: p.name,
+                tagline: p.tagline,
+                description: p.description,
+                story: p.story,
+                logo_url: p.logoUrl,
+                hero_image_url: p.heroImageUrl,
+                phone: p.phone,
+                whatsapp_number: p.whatsappNumber,
+                email: p.email,
+                address: p.address,
+                city: p.city,
+                primary_color: p.primaryColor,
+                secondary_color: p.secondaryColor,
+                accent_color: p.accentColor,
+                updated_at: new Date().toISOString(),
+              })
+              .then();
+          }
+          // Also ensure any other row in restaurant_profile has the latest name & logo_url
+          if (this.supabaseClient) {
+            this.supabaseClient
+              .from('restaurant_profile')
+              .update({
+                name: p.name,
+                tagline: p.tagline,
+                logo_url: p.logoUrl,
+                hero_image_url: p.heroImageUrl,
+                updated_at: new Date().toISOString(),
+              })
+              .neq('id', '')
+              .then();
+          }
         });
     }, 350);
   }
@@ -726,13 +784,35 @@ class DataProviderService {
 
       if (profileRes.data) {
         const p = profileRes.data;
+        let customIdentity: any = null;
+        try {
+          const raw = safeStorage.getItem('restaurant_custom_identity_v1');
+          if (raw) customIdentity = JSON.parse(raw);
+        } catch {
+          // ignore
+        }
+
+        const resolvedLogo =
+          p.logo_url === 'https://preview.themewagon.com/sarab/img/about.jpg'
+            ? ''
+            : p.logo_url ?? this.memoryData.profile.logoUrl;
+
         this.memoryData.profile = {
           ...this.memoryData.profile,
-          name: p.name || this.memoryData.profile.name,
-          tagline: p.tagline || this.memoryData.profile.tagline,
+          name:
+            customIdentity?.name && (!p.name || p.name === 'Sarab')
+              ? customIdentity.name
+              : p.name || this.memoryData.profile.name,
+          tagline:
+            customIdentity?.tagline && (!p.tagline || p.tagline === 'Fast Food & Dining')
+              ? customIdentity.tagline
+              : p.tagline || this.memoryData.profile.tagline,
           description: p.description || this.memoryData.profile.description,
           story: p.story || this.memoryData.profile.story,
-          logoUrl: p.logo_url ?? this.memoryData.profile.logoUrl,
+          logoUrl:
+            customIdentity?.logoUrl !== undefined && !resolvedLogo
+              ? customIdentity.logoUrl
+              : resolvedLogo,
           faviconUrl: p.favicon_url ?? this.memoryData.profile.faviconUrl,
           heroImageUrl: p.hero_image_url ?? this.memoryData.profile.heroImageUrl,
           cuisineType: p.cuisine_type || this.memoryData.profile.cuisineType,
@@ -947,7 +1027,57 @@ class DataProviderService {
 
   // --- MUTATION METHODS ---
   public updateProfile(profile: Partial<RestaurantProfile>) {
+    const prevName = this.memoryData.profile.name || 'Sarab';
     this.memoryData.profile = { ...this.memoryData.profile, ...profile };
+    const nextName = this.memoryData.profile.name || 'Sarab';
+
+    // Save dedicated custom identity key so it never gets lost or overwritten
+    try {
+      safeStorage.setItem(
+        'restaurant_custom_identity_v1',
+        JSON.stringify({
+          name: this.memoryData.profile.name,
+          tagline: this.memoryData.profile.tagline,
+          logoUrl: this.memoryData.profile.logoUrl,
+          heroImageUrl: this.memoryData.profile.heroImageUrl,
+          updatedAt: Date.now(),
+        })
+      );
+    } catch {
+      // ignore
+    }
+
+    // Automatically propagate new restaurant name to SEO title, Chatbot, Voice Assistant, and Audio Player if they still had the old name
+    if (nextName && nextName !== prevName) {
+      const replaceBrand = (str?: string) =>
+        str
+          ? str
+              .replace(new RegExp(prevName, 'gi'), nextName)
+              .replace(/Hotel Sarab/gi, nextName)
+              .replace(/Sarab/gi, nextName)
+          : str;
+
+      if (this.memoryData.seo) {
+        this.memoryData.seo.metaTitle = `${nextName} — ${this.memoryData.profile.tagline || 'Fast Food & Dining'}`;
+      }
+      if (this.memoryData.chatbotSettings) {
+        this.memoryData.chatbotSettings.botName =
+          replaceBrand(this.memoryData.chatbotSettings.botName) || `${nextName} Assistant`;
+      }
+      if (this.memoryData.voiceAssistantSettings) {
+        this.memoryData.voiceAssistantSettings.assistantName =
+          replaceBrand(this.memoryData.voiceAssistantSettings.assistantName) ||
+          `🎙️ ${nextName} Voice Waiter`;
+        this.memoryData.voiceAssistantSettings.languagePromptSpeechHi =
+          replaceBrand(this.memoryData.voiceAssistantSettings.languagePromptSpeechHi) ||
+          `नमस्ते! ${nextName} में आपका स्वागत है। आप कौन सी भाषा में बात करना पसंद करेंगे — हिंदी, गुजराती, या इंग्लिश?`;
+      }
+      if (this.memoryData.audioSettings) {
+        this.memoryData.audioSettings.welcomeTitle =
+          replaceBrand(this.memoryData.audioSettings.welcomeTitle) || `Welcome to ${nextName}!`;
+      }
+    }
+
     this.saveToLocalStorage();
     this.pushSiteBundleToSupabase();
   }
