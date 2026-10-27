@@ -616,15 +616,47 @@ export interface AudioSettings {
   ctaTargetSection: string; // e.g. '#special', '#menu', '#reservation'
   // Smart Voice Announcer (TTS) Settings
   voiceLanguage: 'hi-IN' | 'gu-IN' | 'en-IN';
+  voicePersona?: 'warm_hostess' | 'royal_concierge' | 'energetic_promo' | 'calm_storyteller' | 'custom';
+  voiceGender?: 'auto' | 'female' | 'male';
+  selectedVoiceURI?: string;
   voiceTextHi: string;
   voiceTextGu: string;
   voiceTextEn: string;
-  voiceRate: number; // 0.8 to 1.2
-  voicePitch: number; // 0.8 to 1.2
+  voiceRate: number; // 0.7 to 1.3
+  voicePitch: number; // 0.7 to 1.3
+  enableVoiceClarityEnhancer?: boolean; // Strips emojis, normalizes ₹/%/numbers, speaks clearly sentence-by-sentence
+  enableSmartMusicDucking?: boolean; // Lowers background music volume automatically while voice speaks
+  musicDuckingVolume?: number; // e.g., 0.16 (16% volume during speech)
+  showLanguageSwitcherOnPlayer?: boolean; // Lets visitors switch Hindi/Gujarati/English voice live on player
+  showLiveVoiceTranscript?: boolean; // Displays clean live caption of what is being spoken
+  showQuickActionButtons?: boolean; // Shows Menu, Offer, Book Table & Chatbot action chips on player
+  chimeStyle?: 'royal_harp' | 'temple_bell' | 'modern_ding' | 'celebration_chord';
   enableWelcomeChime: boolean;
   enableCartSoundEffects: boolean;
   // Saved Audio Playlist / Uploaded Tracks
   tracks: AudioTrackItem[];
+}
+
+export interface VoiceAssistantSettings {
+  enabled: boolean;
+  assistantName: string;
+  assistantTitle: string;
+  position: 'bottom_right_above_chat' | 'bottom_center' | 'bottom_left';
+  askLanguageFirst: boolean; // First asks customer which language (Hindi, Gujarati, English) they prefer
+  defaultLanguage: 'hi-IN' | 'gu-IN' | 'en-IN';
+  voicePersona: 'warm_hostess' | 'royal_concierge' | 'energetic_promo' | 'calm_storyteller' | 'custom';
+  voiceGender: 'female' | 'male' | 'auto';
+  voiceRate: number; // 0.8 to 1.2
+  voicePitch: number; // 0.8 to 1.2
+  volume: number; // 0.1 to 1.0
+  autoListenAfterGreeting: boolean; // Automatically turns on Mic after asking language / replying
+  enableDirectVoiceCartAdd: boolean; // Allows customer to say "Add Paneer Tufani" to add directly to cart
+  enableDishLinkNavigation: boolean; // Shows direct link & opens dish in menu when customer asks about a dish
+  languagePromptSpeechHi: string;
+  greetingAfterLanguageHi: string;
+  greetingAfterLanguageGu: string;
+  greetingAfterLanguageEn: string;
+  customKnowledgeNotes: string; // Extra restaurant notes the Voice Agent reads to answer questions
 }
 
 export interface RestaurantDatabaseBundle {
@@ -650,6 +682,7 @@ export interface RestaurantDatabaseBundle {
   sectionContents?: SectionContents;
   chatbotSettings?: ChatbotSettings;
   audioSettings?: AudioSettings;
+  voiceAssistantSettings?: VoiceAssistantSettings;
   orders?: Order[];
   reservations?: TableReservation[];
   contactMessages?: ContactMessage[];

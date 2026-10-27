@@ -23,6 +23,7 @@ import {
   HelpCircle,
   Bot,
   Volume2,
+  Mic,
 } from 'lucide-react';
 import { useRestaurant } from '../../context/RestaurantContext';
 
@@ -42,6 +43,7 @@ export type AdminTabId =
   | 'socials'
   | 'seo'
   | 'chatbot'
+  | 'voiceassistant'
   | 'audio'
   | 'database'
   | 'backup'
@@ -89,6 +91,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
         },
         { id: 'stock', label: 'Quick Stock Toggle', icon: PackageCheck },
         { id: 'chatbot', label: 'Smart Chatbot', icon: Bot },
+        { id: 'voiceassistant', label: 'AI Voice Waiter', icon: Mic },
         { id: 'audio', label: 'Welcome Audio & Voice', icon: Volume2 },
       ],
     },

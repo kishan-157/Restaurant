@@ -18,6 +18,7 @@ import { AdminModal } from './components/admin/AdminModal';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { ChatbotWidget } from './components/common/ChatbotWidget';
 import { WebsiteAudioPlayer } from './components/common/WebsiteAudioPlayer';
+import { VoiceAssistantWidget } from './components/common/VoiceAssistantWidget';
 
 const MainLayout: React.FC = () => {
   const { data } = useRestaurant();
@@ -112,6 +113,9 @@ const MainLayout: React.FC = () => {
 
       {/* Live Verified Assistant Chatbot Widget */}
       <ChatbotWidget />
+
+      {/* Standalone 100% Free AI Voice Assistant (Voice Waiter) */}
+      <VoiceAssistantWidget />
 
       {/* Website Welcome Audio & Voice Announcement Player */}
       <WebsiteAudioPlayer />

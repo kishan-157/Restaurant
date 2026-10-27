@@ -29,6 +29,7 @@ import {
   SEOSettings,
   ChatbotSettings,
   AudioSettings,
+  VoiceAssistantSettings,
 } from '../types';
 import { DEFAULT_RESTAURANT_DATA } from '../data/defaultRestaurantData';
 import { SCHEMA_VERSION } from './sqlGenerator';
@@ -185,6 +186,10 @@ class DataProviderService {
             tracks: Array.isArray(parsed.audioSettings?.tracks)
               ? parsed.audioSettings.tracks
               : DEFAULT_RESTAURANT_DATA.audioSettings!.tracks,
+          },
+          voiceAssistantSettings: {
+            ...DEFAULT_RESTAURANT_DATA.voiceAssistantSettings!,
+            ...(parsed.voiceAssistantSettings || {}),
           },
           orders: Array.isArray(parsed.orders) ? parsed.orders : [],
           reservations: Array.isArray(parsed.reservations) ? parsed.reservations : [],
@@ -438,6 +443,7 @@ class DataProviderService {
         faqs: this.memoryData.faqs,
         chatbotSettings: this.memoryData.chatbotSettings,
         audioSettings: this.memoryData.audioSettings,
+        voiceAssistantSettings: this.memoryData.voiceAssistantSettings,
       };
 
       this.supabaseClient
@@ -774,6 +780,13 @@ class DataProviderService {
               ...b.audioSettings,
             };
           }
+          if (b.voiceAssistantSettings) {
+            this.memoryData.voiceAssistantSettings = {
+              ...DEFAULT_RESTAURANT_DATA.voiceAssistantSettings!,
+              ...this.memoryData.voiceAssistantSettings,
+              ...b.voiceAssistantSettings,
+            };
+          }
         }
       }
 
@@ -995,6 +1008,16 @@ class DataProviderService {
     this.memoryData.audioSettings = {
       ...DEFAULT_RESTAURANT_DATA.audioSettings!,
       ...(this.memoryData.audioSettings || {}),
+      ...settings,
+    };
+    this.saveToLocalStorage();
+    this.pushSiteBundleToSupabase();
+  }
+
+  public updateVoiceAssistantSettings(settings: Partial<VoiceAssistantSettings>) {
+    this.memoryData.voiceAssistantSettings = {
+      ...DEFAULT_RESTAURANT_DATA.voiceAssistantSettings!,
+      ...(this.memoryData.voiceAssistantSettings || {}),
       ...settings,
     };
     this.saveToLocalStorage();

@@ -276,7 +276,7 @@ export const ChatbotWidget: React.FC = () => {
     }
   }, [messages, isOpen, activeMode]);
 
-  // Listen for global coupon application event from OffersSection
+  // Listen for global coupon application & open-chatbot events from OffersSection / WebsiteAudioPlayer
   useEffect(() => {
     const onApplyCoupon = (e: Event) => {
       const code = (e as CustomEvent<string>).detail;
@@ -286,8 +286,19 @@ export const ChatbotWidget: React.FC = () => {
         setCouponFeedback(`Coupon ${code.toUpperCase()} applied!`);
       }
     };
+    const onOpenChatbot = (e: Event) => {
+      const mode = (e as CustomEvent<string>).detail;
+      setIsOpen(true);
+      if (mode === 'order_form' || mode === 'table_booking' || mode === 'status_lookup') {
+        setActiveMode(mode);
+      }
+    };
     window.addEventListener('sarab:apply-coupon', onApplyCoupon);
-    return () => window.removeEventListener('sarab:apply-coupon', onApplyCoupon);
+    window.addEventListener('sarab:open-chatbot', onOpenChatbot);
+    return () => {
+      window.removeEventListener('sarab:apply-coupon', onApplyCoupon);
+      window.removeEventListener('sarab:open-chatbot', onOpenChatbot);
+    };
   }, []);
 
   // Keep welcome message synced when admin updates welcome text or language changes

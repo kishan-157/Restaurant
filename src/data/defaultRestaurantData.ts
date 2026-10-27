@@ -1023,14 +1023,24 @@ export const DEFAULT_RESTAURANT_DATA: RestaurantDatabaseBundle = {
     ctaButtonText: '🔥 Grab 30% Off Combo',
     ctaTargetSection: '#special',
     voiceLanguage: 'hi-IN',
+    voicePersona: 'warm_hostess',
+    voiceGender: 'female',
+    selectedVoiceURI: '',
     voiceTextHi:
-      'नमस्ते! सराब फास्ट फूड एंड डाइनिंग में आपका स्वागत है। आज हमारे स्पेशल बर्गर कॉम्बो पर 30 प्रतिशत की छूट चल रही है। आप वेबसाइट या चैटबॉट से तुरंत अपना ऑर्डर कन्फर्म कर सकते हैं!',
+      'नमस्ते! सराब फास्ट फूड एंड डाइनिंग में आपका हार्दिक स्वागत है। आज हमारे स्पेशल बर्गर और पिज़्ज़ा कॉम्बो पर 30 प्रतिशत की विशेष छूट चल रही है। आप नीचे दिए गए मेन्यू से या लाइव चैटबॉट से तुरंत अपना ऑर्डर कन्फर्म कर सकते हैं!',
     voiceTextGu:
-      'નમસ્તે! સરાબ ફાસ્ટ ફૂડ એન્ડ ડાઇનિંગમાં આપનું સ્વાગત છે. આજે અમારા સ્પેશિયલ બર્ગર કોમ્બો પર 30 ટકા ડિસ્કાઉન્ટ ચાલી રહ્યું છે. આપ વેબસાઇટ અથવા ચેટબોટ પરથી તરત ઓર્ડર કરી શકો છો!',
+      'નમસ્તે! સરાબ ફાસ્ટ ફૂડ એન્ડ ડાઇનિંગમાં આપનું હાર્દિક સ્વાગત છે. આજે અમારા સ્પેશિયલ બર્ગર અને પિઝા કોમ્બો પર 30 ટકા ડિસ્કાઉન્ટ ચાલી રહ્યું છે. આપ વેબસાઇટ અથવા લાઇવ ચેટબોટ પરથી તરત ઓર્ડર કરી શકો છો!',
     voiceTextEn:
-      'Welcome to Sarab Fast Food and Dining! Enjoy 30 percent off on our Special Burger Combo today. Explore our menu or order directly through our live chatbot!',
-    voiceRate: 1.0,
-    voicePitch: 1.0,
+      'Welcome to Sarab Fast Food and Dining! Enjoy a flat 30 percent discount on our Special Burger and Pizza Combo today. Explore our fresh menu below or place your order instantly through our live chatbot!',
+    voiceRate: 0.96,
+    voicePitch: 1.04,
+    enableVoiceClarityEnhancer: true,
+    enableSmartMusicDucking: true,
+    musicDuckingVolume: 0.16,
+    showLanguageSwitcherOnPlayer: true,
+    showLiveVoiceTranscript: true,
+    showQuickActionButtons: true,
+    chimeStyle: 'royal_harp',
     enableWelcomeChime: true,
     enableCartSoundEffects: true,
     tracks: [
@@ -1062,6 +1072,32 @@ export const DEFAULT_RESTAURANT_DATA: RestaurantDatabaseBundle = {
         isActive: false,
       },
     ],
+  },
+  voiceAssistantSettings: {
+    enabled: true,
+    assistantName: 'Sarab Voice Waiter',
+    assistantTitle: '🎙️ Live Voice Order & Menu Guide',
+    position: 'bottom_right_above_chat',
+    askLanguageFirst: true,
+    defaultLanguage: 'hi-IN',
+    voicePersona: 'warm_hostess',
+    voiceGender: 'female',
+    voiceRate: 0.96,
+    voicePitch: 1.04,
+    volume: 0.9,
+    autoListenAfterGreeting: true,
+    enableDirectVoiceCartAdd: true,
+    enableDishLinkNavigation: true,
+    languagePromptSpeechHi:
+      'नमस्ते! सराब फास्ट फूड एंड डाइनिंग में आपका स्वागत है। आप कौन सी भाषा में बात करना पसंद करेंगे — हिंदी, गुजराती, या इंग्लिश?',
+    greetingAfterLanguageHi:
+      'धन्यवाद! अब मैं आपसे हिंदी में बात करूँगी। आप किसी भी डिश का नाम बोल सकते हैं जैसे पनीर तूफानी, डबल स्मैश बर्गर, या आज के ऑफर्स और मेन्यू के बारे में पूछ सकते हैं!',
+    greetingAfterLanguageGu:
+      'આભાર! હવે હું આપની સાથે ગુજરાતીમાં વાત કરીશ. આપ કોઈપણ વાનગીનું નામ બોલી શકો છો જેમ કે પનીર તુફાની, સ્મેશ બર્ગર, અથવા મેનુ અને ઓફર્સ વિશે પૂછી શકો છો!',
+    greetingAfterLanguageEn:
+      'Thank you! I will now assist you in English. You can say any dish name like Paneer Toofani or Double Smash Burger, or ask about our menu, offers, opening hours, and delivery!',
+    customKnowledgeNotes:
+      'We serve 100% fresh food with Jain & Pure Veg options available on request. Free home delivery on orders above ₹499.',
   },
   // Zero fake orders or inquiries — 100% real-time data!
   orders: [],

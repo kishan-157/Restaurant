@@ -28,6 +28,7 @@ import {
   SEOSettings,
   ChatbotSettings,
   AudioSettings,
+  VoiceAssistantSettings,
 } from '../types';
 import { dataProvider, VerificationResult } from '../lib/dataProvider';
 
@@ -56,6 +57,7 @@ interface RestaurantContextType {
   updateSEO: (seo: Partial<SEOSettings>) => void;
   updateChatbotSettings: (settings: Partial<ChatbotSettings>) => void;
   updateAudioSettings: (settings: Partial<AudioSettings>) => void;
+  updateVoiceAssistantSettings: (settings: Partial<VoiceAssistantSettings>) => void;
   saveCategory: (category: MenuCategory) => void;
   deleteCategory: (categoryId: string) => void;
   saveItem: (item: MenuItem) => void;
@@ -159,6 +161,11 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const updateAudioSettings = (settings: Partial<AudioSettings>) => {
     dataProvider.updateAudioSettings(settings);
+    refreshState();
+  };
+
+  const updateVoiceAssistantSettings = (settings: Partial<VoiceAssistantSettings>) => {
+    dataProvider.updateVoiceAssistantSettings(settings);
     refreshState();
   };
 
@@ -398,6 +405,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         updateSEO,
         updateChatbotSettings,
         updateAudioSettings,
+        updateVoiceAssistantSettings,
         saveCategory,
         deleteCategory,
         saveItem,

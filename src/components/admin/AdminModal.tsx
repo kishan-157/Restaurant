@@ -33,6 +33,7 @@ import { AdminBackupExport } from './tabs/AdminBackupExport';
 import { AdminHelpGuide } from './tabs/AdminHelpGuide';
 import { AdminChatbot } from './tabs/AdminChatbot';
 import { AdminAudioStudio } from './tabs/AdminAudioStudio';
+import { AdminVoiceAssistant } from './tabs/AdminVoiceAssistant';
 
 interface AdminModalProps {
   isOpen: boolean;
@@ -173,6 +174,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
     chatbot: {
       title: 'Restaurant Smart Chatbot Studio',
       subtitle: 'Customize automatic website Q&A replies, in-chat order confirmation, live order status tracking & quick buttons',
+    },
+    voiceassistant: {
+      title: '100% Free AI Voice Assistant (Voice Waiter)',
+      subtitle: 'Turn ON/OFF your live speaking & listening Voice Waiter that asks preferred language first and answers from live website content',
     },
     audio: {
       title: 'Website Welcome Audio & Voice Studio',
@@ -463,6 +468,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
                 {activeTab === 'socials' && <AdminSocials />}
                 {activeTab === 'seo' && <AdminSEO />}
                 {activeTab === 'chatbot' && <AdminChatbot showToast={showToast} />}
+                {activeTab === 'voiceassistant' && <AdminVoiceAssistant showToast={showToast} />}
                 {activeTab === 'audio' && <AdminAudioStudio showToast={showToast} />}
                 {activeTab === 'database' && <AdminDatabaseSetup />}
                 {activeTab === 'backup' && <AdminBackupExport />}
